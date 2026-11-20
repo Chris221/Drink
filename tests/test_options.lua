@@ -142,3 +142,16 @@ test("options: per-tier sound toggles exist for heads, low, critical", function(
   table.sort(found)
   eq(found, { "critical", "heads", "low" })
 end)
+
+test("options: slash lock/unlock refreshes an open options panel; usage lists unknown", function()
+  local notified = 0
+  ns.Alert = { SetLocked = function() end }
+  ns.NotifyOptionsChanged = function() notified = notified + 1 end
+  local printed = {}
+  ns.HandleSlash("unlock", function() end)
+  ns.HandleSlash("lock", function() end)
+  ns.HandleSlash("dance", function(m) printed[#printed + 1] = m end)
+  eq(notified, 2)
+  truthy(printed[1]:find("unknown", 1, true), "usage mentions test unknown")
+  ns.Alert, ns.NotifyOptionsChanged = nil, nil
+end)

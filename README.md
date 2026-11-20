@@ -42,6 +42,7 @@ The junction points at this checkout, so whichever branch is checked out is what
 ## Tests
 
     lua tests/run.lua
+    pwsh -File tests/test_install.ps1
 
 See `tests/README.md`. The decision logic (`Logic.lua`, `Controller.lua`), API compatibility (`Compat.lua`), options and alert UI paths are covered with stubs. Look and sound still need an in-game check.
 

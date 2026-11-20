@@ -143,7 +143,7 @@ function ns.BuildOptions(getProfile)
   }
 end
 
-local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, announce, report>, /drink lock, /drink unlock"
+local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report>, /drink lock, /drink unlock"
 
 -- Returns nothing; `say` prints user-facing messages.
 function ns.HandleSlash(input, say)
@@ -155,6 +155,7 @@ function ns.HandleSlash(input, say)
     if not (ctrl and ctrl:Preview(arg)) then say(USAGE) end
   elseif cmd == "lock" or cmd == "unlock" then
     if ns.Alert then ns.Alert.SetLocked(cmd == "lock") end
+    if ns.NotifyOptionsChanged then ns.NotifyOptionsChanged() end
   else
     say(USAGE)
   end
@@ -170,6 +171,7 @@ function ns.SetupOptions(addon)
   dialog:AddToBlizOptions(ADDON, "Drink")
   dialog:SetDefaultSize(ADDON, 640, 560)
   ns.OpenOptions = function() dialog:Open(ADDON) end
+  ns.NotifyOptionsChanged = function() LibStub("AceConfigRegistry-3.0"):NotifyChange(ADDON) end
   local function onSlash(input)
     ns.HandleSlash(input, function(m) DEFAULT_CHAT_FRAME:AddMessage(m) end)
   end

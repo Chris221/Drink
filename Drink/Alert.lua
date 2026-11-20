@@ -23,9 +23,12 @@ local FADE = 0.6
 
 local profile, frame, text, flash
 
+-- Offsets are stored in screen (UIParent) units so changing the scale doesn't move the alert;
+-- SetPoint/GetPoint offsets on a scaled frame are in the frame's own units.
 local function savePoint()
   local p, _, rp, x, y = frame:GetPoint()
-  profile.alert.point = { p, rp, x, y }
+  local s = frame:GetScale()
+  profile.alert.point = { p, rp, x * s, y * s }
 end
 
 local function onUpdate(self, elapsed)
@@ -74,10 +77,10 @@ end
 
 function Alert.ApplyLayout()
   if not frame then return end
-  local p = profile.alert.point
+  local p, s = profile.alert.point, profile.alert.scale
+  frame:SetScale(s)
   frame:ClearAllPoints()
-  frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
-  frame:SetScale(profile.alert.scale)
+  frame:SetPoint(p[1], UIParent, p[2], p[3] / s, p[4] / s)
 end
 
 function Alert.Init(p)

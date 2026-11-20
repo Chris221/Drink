@@ -1,5 +1,5 @@
 local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAuras", "UnitBuff",
-  "C_ChatInfo", "SendChatMessage", "IsInGroup", "IsInRaid", "LE_PARTY_CATEGORY_INSTANCE",
+  "C_ChatInfo", "SendChatMessage", "IsInGroup", "IsInRaid", "LE_PARTY_CATEGORY_INSTANCE", "LE_PARTY_CATEGORY_HOME",
   "UnitAffectingCombat", "GetNumGroupMembers" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
@@ -135,5 +135,21 @@ test("compat: group in combat checks party and raid units", function()
   g.GetNumGroupMembers = function() return 10 end
   with_globals(g, function(C)
     eq(C.GroupInCombat(), true)
+  end)
+end)
+
+test("compat: LFG-only group is not a home party/raid (fixed channels)", function()
+  -- Dungeon finder group: in an instance group, not in a home party.
+  local inCat = { [1] = false, [2] = true }
+  with_globals({
+    IsInGroup = function(cat) if cat == nil then return true end return inCat[cat] end,
+    IsInRaid = function(cat) if cat == nil then return true end return false end,
+    LE_PARTY_CATEGORY_HOME = 1,
+    LE_PARTY_CATEGORY_INSTANCE = 2,
+  }, function(C, ns)
+    local s = C.GroupState()
+    eq(s, { instance = true, raid = false, party = false })
+    eq(ns.Logic.PickChannel("PARTY", s), nil, "fixed PARTY must not send in an LFG-only group")
+    eq(ns.Logic.PickChannel("AUTO", s), "INSTANCE_CHAT")
   end)
 end)

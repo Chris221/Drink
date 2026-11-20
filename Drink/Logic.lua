@@ -51,5 +51,7 @@ function Logic.PickChannel(mode, state)
 end
 
 function Logic.FormatMessage(template, pct)
-  return (string.gsub(template, "%%m", tostring(pct)))
+  -- "|" is WoW's escape character; double it so user text is shown literally.
+  local escaped = string.gsub(template, "|", "||")
+  return (string.gsub(escaped, "%%m", tostring(pct)))
 end

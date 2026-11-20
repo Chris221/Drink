@@ -9,5 +9,6 @@ Run from the repo root:
 
     lua tests/run.lua              # whole suite
     lua tests/run.lua test_logic   # one file
+    pwsh -File tests/test_install.ps1   # install script (uses a throwaway temp folder)
 
 Test files are listed explicitly in `tests/run.lua` (`FILES`). Addon code must stay valid Lua 5.1 (WoW's dialect) even though tests run on 5.4.

@@ -50,3 +50,8 @@ test("logic: FormatMessage substitutes %m", function()
   eq(L.FormatMessage("Drinking — %m% mana", 34), "Drinking — 34% mana")
   eq(L.FormatMessage("Mana: %m%", 7), "Mana: 7%")
 end)
+
+test("logic: FormatMessage escapes | so chat/print never sees a broken escape code", function()
+  eq(L.FormatMessage("Drinking | %m%", 40), "Drinking || 40%")
+  eq(L.FormatMessage("a||b", 1), "a||||b")
+end)

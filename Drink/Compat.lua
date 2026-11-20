@@ -63,10 +63,12 @@ function Compat.GroupState()
   if LE_PARTY_CATEGORY_INSTANCE then
     instance = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and true or false
   end
+  -- party/raid mean the *home* group: an LFD/LFR-only group can only use INSTANCE_CHAT.
+  local home = LE_PARTY_CATEGORY_HOME
   return {
     instance = instance,
-    raid = IsInRaid() and true or false,
-    party = IsInGroup() and true or false,
+    raid = IsInRaid(home) and true or false,
+    party = IsInGroup(home) and true or false,
   }
 end
 
