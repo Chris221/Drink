@@ -83,7 +83,7 @@ local function create()
 
   button = CreateFrame("Button", "DrinkUseButton", holder, "SecureActionButtonTemplate")
   button:SetAllPoints(holder)
-  button:RegisterForClicks("AnyUp", "AnyDown")
+  button:RegisterForClicks("AnyUp") -- release only: one click can never use two drinks
   button:SetAttribute("type", "item")
   -- Always use the item on release, whatever the "cast on key down" setting is; PostClick below
   -- hides only on that release, so the ignored key-down click can't hide the button undrunk.
