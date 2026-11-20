@@ -87,7 +87,7 @@ test("load: glue env implements the full controller env contract", function()
   end
   local ok, err = pcall(function()
     local ns = {}
-    for _, f in ipairs({ "Logic", "Defaults", "Compat", "Controller", "Drink" }) do
+    for _, f in ipairs({ "Logic", "Drinks", "Defaults", "Compat", "Controller", "Drink" }) do
       load_addon(ns, "Drink/" .. f .. ".lua")
     end
     addon:OnInitialize()

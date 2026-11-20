@@ -5,9 +5,13 @@ local Compat = ns.Compat
 local Drink = LibStub("AceAddon-3.0"):NewAddon(ADDON, "AceConsole-3.0", "AceEvent-3.0")
 ns.addon = Drink
 
-local ctrl, env, nameSet = nil, nil, {}
+local ctrl, env, nameSet, overrideSet = nil, nil, {}, {}
 
 function ns.ctrl() return ctrl end
+
+function ns.RefreshOverrides()
+  overrideSet = ns.Drinks.ParseOverrides(Drink.db.profile.recommend.overrides)
+end
 
 function ns.RefreshAuraNames()
   nameSet = ns.Logic.ParseNames(Drink.db.profile.announce.auraNames)
@@ -29,12 +33,18 @@ local function buildEnv()
     print = function(msg) DEFAULT_CHAT_FRAME:AddMessage(msg) end,
     showAlert = function(tier, pct) if ns.Alert then ns.Alert.Show(tier, pct) end end,
     hideAlert = function() if ns.Alert then ns.Alert.Hide() end end,
+    getUsableDrinks = function() return Compat.ScanDrinks and Compat.ScanDrinks(overrideSet) or {} end,
+    getMaxMana = function() return Compat.GetMaxMana and Compat.GetMaxMana() or nil end,
+    showDrinkButton = function(drink) return ns.DrinkButton and ns.DrinkButton.Show(drink) or false end,
+    hideDrinkButton = function() if ns.DrinkButton then ns.DrinkButton.Hide() end end,
+    showStock = function(summary) if ns.Alert and ns.Alert.ShowStock then ns.Alert.ShowStock(summary) end end,
   }
 end
 
 -- (Re)build everything that depends on the active profile.
 function Drink:Rebuild()
   ns.RefreshAuraNames()
+  ns.RefreshOverrides()
   if ctrl then
     ctrl:SetProfile(self.db.profile)
   else

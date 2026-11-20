@@ -7,6 +7,7 @@ function FakeEnv.New(o)
     group = {}, groupCombat = false, locked = false,
     sent = {}, printed = {}, alerts = {}, hidden = 0,
     queue = {}, seq = 0,
+    drinks = {}, maxMana = 1000, buttonShown = nil, buttonShows = {}, buttonHides = 0, stocks = {},
   }
   for k, v in pairs(o or {}) do env[k] = v end
 
@@ -27,6 +28,14 @@ function FakeEnv.New(o)
   function env.print(msg) env.printed[#env.printed + 1] = msg end
   function env.showAlert(tier, pct) env.alerts[#env.alerts + 1] = { tier, pct } end
   function env.hideAlert() env.hidden = env.hidden + 1 end
+  function env.getUsableDrinks() return env.drinks end
+  function env.getMaxMana() return env.maxMana end
+  function env.showDrinkButton(d)
+    if env.inCombat then return false end
+    env.buttonShown = d; env.buttonShows[#env.buttonShows + 1] = d.name; return true
+  end
+  function env.hideDrinkButton() env.buttonHides = env.buttonHides + 1; env.buttonShown = nil end
+  function env.showStock(s) env.stocks[#env.stocks + 1] = s end
 
   -- Advance the clock, running due callbacks in time order (callbacks may schedule more).
   function env:advance(dt)

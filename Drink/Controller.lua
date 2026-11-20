@@ -19,6 +19,8 @@ function Controller.New(profile, env)
     drinking = nil,       -- nil = not yet observed (e.g. right after /reload): first observation is not an edge
     lastPost = nil,
     announcedAt = nil,
+    downtime = ns.Drinks.NewDowntime(),
+    buttonToken = 0,      -- bumps on every button show; a hide timer only acts on its own show
   }, Controller)
 end
 
@@ -41,13 +43,17 @@ function Controller:OnCombatStart()
   self.gen = self.gen + 1
   self.combatStart = self.env.now()
   self.drinking = false   -- entering combat removes the drink buff; aura scans pause in combat
+  self.downtime:RecordStart(self.combatStart)
   self.env.hideAlert()    -- don't carry a DRINK alert / red flash into the next pull
+  self.env.hideDrinkButton() -- runs before combat lockdown applies; never leave a stale button
 end
 
 function Controller:OnCombatEnd()
   self.gen = self.gen + 1
   local gen, env = self.gen, self.env
   local now = env.now()
+  self.downtime:RecordEnd(now)
+  env.hideDrinkButton()
   -- Unknown start (e.g. loaded mid-fight) counts as a long fight.
   local duration = self.combatStart and (now - self.combatStart) or math.huge
   self.combatStart = nil
@@ -93,6 +99,68 @@ function Controller:Evaluate(duration, endedAt)
   local announcedSinceEnd = self.announcedAt and endedAt and self.announcedAt >= endedAt
   if r.enabled and pct and pct < r.below and not announcedSinceEnd then
     self:Post(Logic.FormatMessage(r.template, pct), r.channel)
+  end
+
+  local rc = p.recommend
+  if rc.enabled and pct and not self.drinking and (rc.below >= 100 or pct < rc.below) then
+    self:ShowRecommendation()
+  end
+end
+
+-- Drink recommendation ------------------------------------------------------
+
+function Controller:Recommend()
+  local env, rc = self.env, self.p.recommend
+  local pct, max = env.getManaPct(), env.getMaxMana()
+  if not pct or not max then return nil end
+  local deficit = math.floor(max * (100 - pct) / 100)
+  return ns.Drinks.Pick(env.getUsableDrinks(), deficit, {
+    preferConjured = rc.preferConjured,
+    downtime = rc.useDowntime and self.downtime:Estimate() or nil,
+  })
+end
+
+-- Shows the button for the configured seconds; returns the drink or nil.
+function Controller:ShowRecommendation()
+  local env = self.env
+  local rec = self:Recommend()
+  if not rec or not env.showDrinkButton(rec) then return rec and nil end
+  self.buttonToken = self.buttonToken + 1
+  local token, gen = self.buttonToken, self.gen
+  env.after(self.p.recommend.seconds, function()
+    if token == self.buttonToken and gen == self.gen then env.hideDrinkButton() end
+  end)
+  return rec
+end
+
+function Controller:DowntimeInfo()
+  return { estimate = self.downtime:Estimate(), count = self.downtime:Count() }
+end
+
+function Controller:OnZoneChanged()
+  self.downtime:Reset()
+end
+
+-- Stock check ---------------------------------------------------------------
+
+function Controller:OnEnteringWorld(isReload, instanceType)
+  if isReload then return end
+  self:OnZoneChanged()
+  if self.p.stock.enabled and (instanceType == "party" or instanceType == "raid") then
+    self:StockCheck()
+  end
+end
+
+function Controller:StockCheck()
+  local env = self.env
+  local max = env.getMaxMana()
+  if not env.hasMana() or not max then return end
+  local summary = ns.Drinks.StockSummary(env.getUsableDrinks(), max, self.p.stock.threshold)
+  env.showStock(summary)
+  if summary.breakdown ~= "" then
+    env.print("[Drink] " .. summary.breakdown)
+  else
+    env.print("[Drink] No drinks in your bags.")
   end
 end
 
@@ -140,6 +208,14 @@ function Controller:Preview(kind)
   if kind == "announce" or kind == "report" then
     local pct = env.getManaPct() or 42
     env.print("[Drink] would send: " .. Logic.FormatMessage(self.p[kind].template, pct))
+    return true
+  end
+  if kind == "drink" then
+    if not self:ShowRecommendation() then env.print("[Drink] No usable drink to recommend.") end
+    return true
+  end
+  if kind == "stock" then
+    self:StockCheck()
     return true
   end
   if SAMPLE_PCT[kind] or kind == "unknown" then

@@ -36,5 +36,15 @@ ns.defaults = {
       template = "Mana: %m%",
     },
     dedupSeconds = 5,
+    recommend = {
+      enabled = true,
+      below = 80,          -- only recommend below this mana % (100 = always)
+      seconds = 5,         -- how long the drink button stays up
+      preferConjured = true,
+      useDowntime = true,
+      overrides = "",      -- "name or itemID = mana[, seconds]" per line
+    },
+    stock = { enabled = true, threshold = 20 },
+    button = { point = { "CENTER", "CENTER", 0, 110 }, size = 40 },
   },
 }
