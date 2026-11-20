@@ -3,6 +3,7 @@ package.path = "tests/?.lua;" .. package.path
 
 local FILES = {
   "test_logic",
+  "test_drinks",
   "test_controller",
   "test_compat",
   "test_load",

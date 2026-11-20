@@ -30,7 +30,7 @@ end)
 
 test("load: toc file order and existence", function()
   local files = tocFiles()
-  eq(files, { "embeds.xml", "Logic.lua", "Defaults.lua", "Compat.lua", "Controller.lua",
+  eq(files, { "embeds.xml", "Logic.lua", "Drinks.lua", "Defaults.lua", "Compat.lua", "Controller.lua",
     "Alert.lua", "Options.lua", "Drink.lua" })
   for _, f in ipairs(files) do truthy(exists("Drink/" .. f), "missing Drink/" .. f) end
 end)
