@@ -221,3 +221,12 @@ test("controller: preview with unknown mana uses sample 42", function()
   ctrl:Preview("announce")
   eq(env.printed, { "[Drink] would send: Drinking — 42% mana" })
 end)
+
+test("controller: character without a mana pool gets nothing", function()
+  local ctrl, env = setup({ noMana = true, unknownMana = true, group = PARTY },
+    function(p) p.report.enabled = true end)
+  fight(ctrl, env, 10)
+  eq(#env.alerts, 0)
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(#env.sent, 0)
+end)

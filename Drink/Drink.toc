@@ -1,0 +1,15 @@
+## Interface: 16001, 50504, 120105, 120107
+## Title: Drink
+## Notes: Healer drink alerts: tells you when to drink after combat and announces it to your group.
+## Author: Chris
+## Version: 1.0.0
+## SavedVariables: DrinkDB
+
+embeds.xml
+Logic.lua
+Defaults.lua
+Compat.lua
+Controller.lua
+Alert.lua
+Options.lua
+Drink.lua

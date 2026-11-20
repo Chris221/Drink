@@ -3,7 +3,7 @@ local FakeEnv = {}
 
 function FakeEnv.New(o)
   local env = {
-    t = 0, mana = 50, dead = false, drinking = false,
+    t = 0, mana = 50, dead = false, drinking = false, noMana = false,
     group = {}, groupCombat = false, locked = false,
     sent = {}, printed = {}, alerts = {}, hidden = 0,
     queue = {}, seq = 0,
@@ -16,6 +16,7 @@ function FakeEnv.New(o)
     env.queue[#env.queue + 1] = { at = env.t + delay, seq = env.seq, fn = fn }
   end
   function env.getManaPct() if env.unknownMana then return nil end return env.mana end
+  function env.hasMana() return not env.noMana end
   function env.isDead() return env.dead end
   function env.isDrinking() return env.drinking end
   function env.groupState() return env.group end

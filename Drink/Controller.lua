@@ -58,7 +58,7 @@ end
 
 function Controller:Evaluate(duration)
   local p, env = self.p, self.env
-  if env.isDead() then return end
+  if env.isDead() or not env.hasMana() then return end
   if duration < p.alert.minFightSeconds then return end
   local pct = env.getManaPct()
 
