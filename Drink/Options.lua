@@ -68,6 +68,9 @@ function ns.BuildOptions(getProfile)
         test = { type = "execute", name = "Test", order = nextOrder(), func = function() preview(key) end },
       },
     }
+    if key ~= "fyi" then
+      g.args.sound = opt("toggle", { "tiers", key, "sound" }, "Play sound")
+    end
     if key == "critical" then
       g.args.flash = opt("toggle", { "tiers", "critical", "flash" }, "Red screen-edge flash")
     end
@@ -167,7 +170,9 @@ function ns.SetupOptions(addon)
   dialog:AddToBlizOptions(ADDON, "Drink")
   dialog:SetDefaultSize(ADDON, 640, 560)
   ns.OpenOptions = function() dialog:Open(ADDON) end
-  addon:RegisterChatCommand("drink", function(input)
+  local function onSlash(input)
     ns.HandleSlash(input, function(m) DEFAULT_CHAT_FRAME:AddMessage(m) end)
-  end)
+  end
+  addon:RegisterChatCommand("drink", onSlash)
+  addon:RegisterChatCommand("drinkalert", onSlash) -- fallback in case a client resolves the /drink emote first
 end

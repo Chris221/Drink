@@ -18,9 +18,9 @@ ns.defaults = {
     cutoffs = { fyi = 80, heads = 50, low = 20 },
     tiers = {
       fyi      = { enabled = true, duration = 2 },
-      heads    = { enabled = true, duration = 3 },
-      low      = { enabled = true, duration = 4 },
-      critical = { enabled = true, duration = 6, flash = true },
+      heads    = { enabled = true, duration = 3, sound = true },
+      low      = { enabled = true, duration = 4, sound = true },
+      critical = { enabled = true, duration = 6, sound = true, flash = true },
     },
     announce = {
       enabled = true,

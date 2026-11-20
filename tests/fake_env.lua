@@ -17,6 +17,7 @@ function FakeEnv.New(o)
   end
   function env.getManaPct() if env.unknownMana then return nil end return env.mana end
   function env.hasMana() return not env.noMana end
+  function env.inCombatNow() return env.inCombat == true end
   function env.isDead() return env.dead end
   function env.isDrinking() return env.drinking end
   function env.groupState() return env.group end

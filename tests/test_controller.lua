@@ -9,6 +9,7 @@ local function setup(envOverrides, tweak)
   if tweak then tweak(profile) end
   local env = FakeEnv.New(envOverrides)
   local ctrl = ns.Controller.New(profile, env)
+  ctrl:SyncDrinking() -- what the glue does on PLAYER_ENTERING_WORLD
   return ctrl, env, profile
 end
 
@@ -229,4 +230,94 @@ test("controller: character without a mana pool gets nothing", function()
   eq(#env.alerts, 0)
   env.drinking = true; ctrl:OnAuraChanged()
   eq(#env.sent, 0)
+end)
+
+-- Final-review fixes -------------------------------------------------------
+
+test("controller: drink already in progress at load is not re-announced (reload)", function()
+  local profile = deepcopy(ns.defaults.profile)
+  local env = FakeEnv.New({ mana = 80, group = PARTY, drinking = true })
+  local ctrl = ns.Controller.New(profile, env)
+  ctrl:OnAuraChanged()            -- first aura event after /reload
+  ctrl:OnAuraChanged()
+  eq(#env.sent, 0)
+  env.drinking = false; ctrl:OnAuraChanged()
+  env:advance(10)
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(#env.sent, 1, "next real drink announces")
+end)
+
+test("controller: SyncDrinking at world entry while drinking suppresses announce", function()
+  local profile = deepcopy(ns.defaults.profile)
+  local env = FakeEnv.New({ mana = 80, group = PARTY, drinking = true })
+  local ctrl = ns.Controller.New(profile, env)
+  ctrl:SyncDrinking()
+  ctrl:OnAuraChanged()
+  eq(#env.sent, 0)
+end)
+
+test("controller: SetProfile keeps drinking state and dedup", function()
+  local ctrl, env = setup({ mana = 30, group = PARTY })
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(#env.sent, 1)
+  ctrl:SetProfile(deepcopy(ns.defaults.profile))
+  ctrl:OnAuraChanged()
+  eq(#env.sent, 1, "no re-announce after profile switch")
+end)
+
+test("controller: SetProfile cancels a pending group wait from the old profile", function()
+  local ctrl, env = setup({ mana = 10, group = PARTY, groupCombat = true },
+    function(p) p.alert.waitForGroup = true end)
+  fight(ctrl, env, 10)
+  local newp = deepcopy(ns.defaults.profile)
+  newp.alert.enabled = false
+  ctrl:SetProfile(newp)
+  env.groupCombat = false
+  env:advance(1)
+  eq(#env.alerts, 0)
+end)
+
+test("controller: drinking during group wait skips alert and report", function()
+  local ctrl, env = setup({ mana = 30, group = PARTY, groupCombat = true },
+    function(p) p.alert.waitForGroup = true; p.report.enabled = true end)
+  fight(ctrl, env, 10)
+  env:advance(1)
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(env.sent, { { "Drinking — 30% mana", "PARTY" } })
+  env:advance(10)
+  env.groupCombat = false
+  env:advance(0.5)
+  eq(#env.alerts, 0, "no DRINK alert while already drinking")
+  eq(#env.sent, 1, "no report after the announce")
+end)
+
+test("controller: new pull hides a visible alert", function()
+  local ctrl, env = setup({ mana = 10 })
+  fight(ctrl, env, 10)
+  eq(#env.alerts, 1)
+  local before = env.hidden
+  ctrl:OnCombatStart()
+  eq(env.hidden, before + 1)
+end)
+
+test("controller: no drinking announce at full mana (buff food / feasts)", function()
+  local ctrl, env = setup({ mana = 100, group = PARTY })
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(#env.sent, 0)
+end)
+
+test("controller: aura changes during combat are ignored; combat resets drinking", function()
+  local ctrl, env = setup({ mana = 30, group = PARTY })
+  env.inCombat = true
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(#env.sent, 0)
+  eq(env.hidden, 0, "no scan side effects in combat")
+  env.inCombat = false
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(#env.sent, 1)
+  ctrl:OnCombatStart()            -- drink buff is lost on entering combat
+  env.drinking = false
+  ctrl:OnCombatEnd(); env:advance(10)
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(#env.sent, 2, "next drink after combat announces even without a falling-edge event")
 end)

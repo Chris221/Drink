@@ -16,7 +16,7 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
   | CRITICAL | under 20% | huge pulsing red text, raid-warning sound, red screen-edge flash |
 
   It skips fights shorter than 3s and stays quiet at 100% mana or when you're dead. It never fires on characters without mana. Optionally it waits until the whole group is out of combat.
-- **"Drinking — 34% mana":** posted to instance, raid or party chat (auto-picked) once each time you start drinking. It also dismisses the alert.
+- **"Drinking — 34% mana":** posted to instance, raid or party chat (auto-picked) once each time you start drinking. It also dismisses the alert. Never posts at 100% mana (buff food) or again after a `/reload` mid-drink.
 - **End-of-fight mana report:** off by default. Posts `Mana: 42%` when you end a fight below 50%.
 - On Retail, if Blizzard's chat lockdown is active (boss fights / M+), messages print locally instead of erroring.
 
@@ -24,7 +24,7 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
 
 | Command | |
 |---|---|
-| `/drink` | open options |
+| `/drink` (or `/drinkalert`) | open options |
 | `/drink test fyi` / `heads` / `low` / `critical` | preview an alert tier |
 | `/drink test announce` / `report` | print the chat message locally (never sends) |
 | `/drink unlock` / `/drink lock` | move the alert |
@@ -35,7 +35,7 @@ The options are also in the game's AddOns settings under **Drink**. Every thresh
 
 `Drink/` is the addon. `tools/install.ps1` junctions it into the AddOns folder of each client, so edits in the repo are live after `/reload`:
 
-    powershell -File tools/install.ps1
+    powershell -ExecutionPolicy Bypass -File tools/install.ps1
 
 The junction points at this checkout, so whichever branch is checked out is what the game loads.
 
@@ -53,3 +53,5 @@ See `tests/README.md`. The decision logic (`Logic.lua`, `Controller.lua`), API c
 4. `/drink test announce` prints only in your own chat window.
 5. In a party: fight a mob and drop combat to get the tier alert. Drink, and the party sees `Drinking — X% mana` once.
 6. Druid: check the mana % in cat/bear form.
+7. Eat buff food or a feast at full mana. Nothing should post.
+8. Check that `/drink` opens the options rather than doing the drink emote. If it does the emote, use `/drinkalert`.

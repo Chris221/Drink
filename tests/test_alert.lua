@@ -70,6 +70,13 @@ test("alert: show, fade, lock and drag paths run without errors", function()
 
     A.SetLocked(true)
     eq(f.shown, false)
+    local n = #sounds
+    profile.tiers.low.sound = false
+    A.Show("low", 35)
+    eq(#sounds, n, "low tier sound toggled off")
+    profile.tiers.low.sound = true
+    A.Show("low", 35)
+    eq(#sounds, n + 1, "low tier sound back on")
     profile.alert.scale = 1.5
     A.ApplyLayout()
   end)

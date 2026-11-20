@@ -19,6 +19,7 @@ local function buildEnv()
     after = function(delay, fn) C_Timer.After(delay, fn) end,
     getManaPct = Compat.GetManaPercent,
     hasMana = Compat.HasMana,
+    inCombatNow = function() return InCombatLockdown() and true or false end,
     isDead = function() return UnitIsDeadOrGhost("player") and true or false end,
     isDrinking = function() return Compat.IsDrinking(nameSet) end,
     groupState = Compat.GroupState,
@@ -34,7 +35,11 @@ end
 -- (Re)build everything that depends on the active profile.
 function Drink:Rebuild()
   ns.RefreshAuraNames()
-  ctrl = ns.Controller.New(self.db.profile, env)
+  if ctrl then
+    ctrl:SetProfile(self.db.profile)
+  else
+    ctrl = ns.Controller.New(self.db.profile, env)
+  end
   if ns.Alert then ns.Alert.Init(self.db.profile) end
 end
 
@@ -52,6 +57,7 @@ function Drink:OnEnable()
   self:RegisterEvent("PLAYER_REGEN_DISABLED")
   self:RegisterEvent("PLAYER_REGEN_ENABLED")
   self:RegisterEvent("UNIT_AURA")
+  self:RegisterEvent("PLAYER_ENTERING_WORLD")
 end
 
 function Drink:PLAYER_REGEN_DISABLED() ctrl:OnCombatStart() end
@@ -60,3 +66,5 @@ function Drink:PLAYER_REGEN_ENABLED() ctrl:OnCombatEnd() end
 function Drink:UNIT_AURA(_, unit)
   if unit == "player" then ctrl:OnAuraChanged() end
 end
+
+function Drink:PLAYER_ENTERING_WORLD() ctrl:SyncDrinking() end

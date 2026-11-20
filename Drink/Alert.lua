@@ -113,7 +113,7 @@ function Alert.Show(tier, pct)
   else
     flash:Hide()
   end
-  if style.play then style.play() end
+  if style.play and not (cfg and cfg.sound == false) then style.play() end
 end
 
 function Alert.Hide()

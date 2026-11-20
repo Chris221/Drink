@@ -97,7 +97,7 @@ test("load: glue env implements the full controller env contract", function()
         truthy(type(realEnv[k]) == "function", "real env missing " .. k)
       end
     end
-    for _, ev in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "UNIT_AURA" }) do
+    for _, ev in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "UNIT_AURA", "PLAYER_ENTERING_WORLD" }) do
       truthy(type(addon[ev]) == "function", "missing handler " .. ev)
     end
   end)

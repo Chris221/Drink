@@ -132,3 +132,13 @@ test("options: slash commands", function()
   truthy(printed[1]:find("/drink test", 1, true), "usage mentions /drink test")
   ns.ctrl, ns.Alert, ns.OpenOptions = nil, nil, nil
 end)
+
+test("options: per-tier sound toggles exist for heads, low, critical", function()
+  local opts = build()
+  local found = {}
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.arg and opt.arg[1] == "tiers" and opt.arg[3] == "sound" then found[#found + 1] = opt.arg[2] end
+  end
+  table.sort(found)
+  eq(found, { "critical", "heads", "low" })
+end)
