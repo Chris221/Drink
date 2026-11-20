@@ -1,5 +1,5 @@
 -- Bag scan + tooltip reading (Compat.ScanDrinks) with stubbed WoW globals.
-local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue",
+local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "NUM_BAG_SLOTS", "NUM_TOTAL_EQUIPPED_BAG_SLOTS",
   "C_Container", "GetContainerNumSlots", "GetContainerItemID", "GetContainerItemInfo", "C_Item", "GetItemInfo",
   "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
   "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3" }
@@ -7,14 +7,14 @@ local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue",
 -- A world: items by id = { name, minLevel, lines = {...}, usable = bool, cd = {start, dur} }
 -- bags[bag] = { [slot] = { id, count } }
 local ITEMS = {
-  [1] = { name = "Morning Glory Dew", minLevel = 45, lines = { "Morning Glory Dew", "Use: Restores 2934 mana over 27 sec." } },
-  [2] = { name = "Conjured Sparkling Water", minLevel = 45, lines = { "Conjured Sparkling Water", "Conjured Item", "Use: Restores 4200 mana over 30 sec." } },
+  [1] = { name = "Morning Glory Dew", minLevel = 45, lines = { "Morning Glory Dew", "Use: Restores 2934 mana over 27 sec. Must remain seated while drinking." } },
+  [2] = { name = "Conjured Sparkling Water", minLevel = 45, lines = { "Conjured Sparkling Water", "Conjured Item", "Use: Restores 4200 mana over 30 sec. Must remain seated while drinking." } },
   [3] = { name = "Major Mana Potion", minLevel = 49, lines = { "Major Mana Potion", "Use: Restores 1350 to 2250 mana." } },
-  [4] = { name = "Star's Tears", minLevel = 65, lines = { "Star's Tears", "Use: Restores 7200 mana over 30 sec." } },
-  [5] = { name = "Cooldown Water", minLevel = 1, lines = { "Use: Restores 100 mana over 30 sec." }, cd = { 10, 30 } },
-  [6] = { name = "Retail Water", minLevel = 1, lines = { "Use: Restores 7% of your mana per second for 20 sec" } },
+  [4] = { name = "Star's Tears", minLevel = 65, lines = { "Star's Tears", "Use: Restores 7200 mana over 30 sec. Must remain seated while drinking." } },
+  [5] = { name = "Cooldown Water", minLevel = 1, lines = { "Use: Restores 100 mana over 30 sec. Must remain seated while drinking." }, cd = { 10, 30 } },
+  [6] = { name = "Retail Water", minLevel = 1, lines = { "Use: Restores 7% of your mana per second for 20 sec Must remain seated while drinking." } },
   [7] = { name = "Weird Juice", minLevel = 1, lines = { "Weird Juice", "Use: Something unparseable." } },
-  [8] = { name = "Unusable Water", minLevel = 1, lines = { "Use: Restores 500 mana over 30 sec." }, usable = false },
+  [8] = { name = "Unusable Water", minLevel = 1, lines = { "Use: Restores 500 mana over 30 sec. Must remain seated while drinking." }, usable = false },
 }
 local BAGS = {
   [0] = { [1] = { 1, 20 }, [2] = { 3, 5 }, [3] = { 1, 4 } },
@@ -153,4 +153,16 @@ test("scan: an item whose tooltip hasn't loaded yet is retried next scan", funct
     loaded = true
     eq(byName(C.ScanDrinks({}))["Morning Glory Dew"].mana, 2934)
   end)
+end)
+
+test("scan: only equipped bags are scanned (MoP Classic bag 5 is a bank bag)", function()
+  BAGS[5] = { [1] = { 1, 50 } }
+  local ok, err = pcall(function()
+    local g = world(); g.NUM_BAG_SLOTS = 4
+    with_world(g, function(C) eq(byName(C.ScanDrinks({}))["Morning Glory Dew"].count, 24) end)
+    g = world(); g.NUM_TOTAL_EQUIPPED_BAG_SLOTS = 5; g.NUM_BAG_SLOTS = 4
+    with_world(g, function(C) eq(byName(C.ScanDrinks({}))["Morning Glory Dew"].count, 74, "retail reagent bag counted") end)
+  end)
+  BAGS[5] = nil
+  if not ok then error(err, 0) end
 end)

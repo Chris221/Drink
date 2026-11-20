@@ -11,21 +11,21 @@ end
 -- Parsing -----------------------------------------------------------------
 
 test("drinks: parse flat mana drink", function()
-  eq(D.ParseTooltip({ "Morning Glory Dew", "Use: Restores 4200 mana over 30 sec." }), { mana = 4200, seconds = 30 })
+  eq(D.ParseTooltip({ "Morning Glory Dew", "Use: Restores 4200 mana over 30 sec. Must remain seated while drinking." }), { mana = 4200, seconds = 30 })
 end)
 
 test("drinks: parse food & drink takes the mana part", function()
-  eq(D.ParseTooltip({ "Restores 2148 health and 4200 mana over 30 sec." }), { mana = 4200, seconds = 30 })
+  eq(D.ParseTooltip({ "Restores 2148 health and 4200 mana over 30 sec. Must remain seated while drinking." }), { mana = 4200, seconds = 30 })
 end)
 
 test("drinks: parse thousands separators", function()
-  eq(D.ParseTooltip({ "Restores 1,344,000 mana over 20 sec" }), { mana = 1344000, seconds = 20 })
-  eq(D.ParseTooltip({ "Restores 1.344.000 mana over 20 sec" }), { mana = 1344000, seconds = 20 })
+  eq(D.ParseTooltip({ "Restores 1,344,000 mana over 20 sec Must remain seated while drinking." }), { mana = 1344000, seconds = 20 })
+  eq(D.ParseTooltip({ "Restores 1.344.000 mana over 20 sec Must remain seated while drinking." }), { mana = 1344000, seconds = 20 })
 end)
 
 test("drinks: parse percent drinks", function()
-  eq(D.ParseTooltip({ "Restores 7% of your mana per second for 20 sec" }), { pct = 140, seconds = 20 })
-  eq(D.ParseTooltip({ "Restores 50% of your mana over 20 sec" }), { pct = 50, seconds = 20 })
+  eq(D.ParseTooltip({ "Restores 7% of your mana per second for 20 sec Must remain seated while drinking." }), { pct = 140, seconds = 20 })
+  eq(D.ParseTooltip({ "Restores 50% of your mana over 20 sec Must remain seated while drinking." }), { pct = 50, seconds = 20 })
 end)
 
 test("drinks: potions, gems and plain food are not drinks", function()
@@ -130,4 +130,33 @@ test("drinks: stock summary", function()
   eq(big.low, false)
   local none = D.StockSummary({}, 1000, 20)
   eq(none.total, 0); eq(none.refills, 0); eq(none.low, true); eq(none.breakdown, "")
+end)
+
+-- Final-review fixes -------------------------------------------------------
+
+test("drinks: timed mana potions without 'remain seated' are not drinks", function()
+  eq(D.ParseTooltip({ "Potion of Frozen Focus", "Use: Restores 6000 mana over 10 sec." }), nil)
+  eq(D.ParseTooltip({ "Use: Restores 50% of your mana over 10 sec." }), nil)
+end)
+
+test("drinks: retail mage food '100% health and mana'", function()
+  eq(D.ParseTooltip({ "Conjured Mana Bun", "Use: Restores 100% health and mana over 20 sec. Must remain seated while eating." }),
+    { pct = 100, seconds = 20 })
+end)
+
+test("drinks: overrides accept thousands commas", function()
+  local o = D.ParseOverrides("Big Water = 1,200,000, 20\nOther = 1,200,000\nSmall = 4200,27")
+  eq(o["big water"], { mana = 1200000, seconds = 20 })
+  eq(o["other"], { mana = 1200000, seconds = 30 })
+  eq(o["small"], { mana = 4200, seconds = 27 }, "no-space comma before seconds still works")
+end)
+
+test("drinks: very short gaps (chain pulls) don't count as downtime", function()
+  local t = D.NewDowntime()
+  local now = 0
+  local function gap(g) t:RecordEnd(now); now = now + g; t:RecordStart(now); now = now + 20 end
+  gap(1); gap(2); gap(0.5); gap(4.9)
+  eq(t:Count(), 0)
+  gap(25); gap(30); gap(20)
+  eq(t:Estimate(), 25)
 end)

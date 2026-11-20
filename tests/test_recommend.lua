@@ -192,3 +192,17 @@ test("stock: check waits 3s after the loading screen (item data settles)", funct
   env:advance(0.1)
   eq(#env.stocks, 1)
 end)
+
+test("recommend: drinking from the action bar closes the button", function()
+  local ctrl, env = setup({ mana = 60, drinks = THREE })
+  fight(ctrl, env, 10)
+  eq(env.buttonShown and env.buttonShown.name, "Mid")
+  env.drinking = true; ctrl:OnAuraChanged()
+  eq(env.buttonShown, nil)
+end)
+
+test("stock: skipped while dead or a ghost (corpse run)", function()
+  local ctrl, env = setup({ dead = true, drinks = { d("A", 800) } })
+  ctrl:OnEnteringWorld(false, "party"); env:advance(3)
+  eq(#env.stocks, 0)
+end)

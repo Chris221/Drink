@@ -143,3 +143,59 @@ test("button: lock and layout requested in combat are applied afterwards", funct
     eq(holder.w, 60)
   end)
 end)
+
+-- Final-review fixes -------------------------------------------------------
+
+test("button: uses the item on release; the ignored key-down click doesn't hide it", function()
+  with_button(function(B, reg)
+    local button = reg.DrinkUseButton
+    eq(button.attrs.useOnKeyDown, false)
+    B.Show(DRINK)
+    button.hooks.PostClick(button, "LeftButton", true)
+    eq(button.shown, true, "still there for the release that actually drinks")
+    button.hooks.PostClick(button, "LeftButton", false)
+    eq(button.shown, false)
+  end)
+end)
+
+test("button: shows a count of 1 so you can see it's your last drink", function()
+  with_button(function(B, reg)
+    local one = {}
+    for k, v in pairs(DRINK) do one[k] = v end
+    one.count = 1
+    B.Show(one)
+    eq(reg.DrinkUseButton.count.text, "1")
+  end)
+end)
+
+local function gripOf(reg, holder)
+  for _, o in ipairs(reg) do if o.parent == holder and o.scripts.OnMouseDown then return o end end
+end
+
+test("button: resizing keeps the corner where it was dropped (point saved too)", function()
+  with_button(function(B, reg, _, _, profile)
+    local holder = reg.DrinkButtonHolder
+    B.SetLocked(false)
+    local grip = gripOf(reg, holder)
+    grip.scripts.OnMouseDown(grip); holder.w, holder.h = 60, 60; grip.scripts.OnMouseUp(grip)
+    eq(profile.button.point, { "LEFT", "LEFT", 300, -20 }, "point re-read after sizing")
+  end)
+end)
+
+test("button: combat starting mid-drag never touches the protected holder until it ends", function()
+  with_button(function(B, reg, _, combat)
+    local holder = reg.DrinkButtonHolder
+    local stops = 0
+    holder.StopMovingOrSizing = function() if combat.on then error("ADDON_ACTION_BLOCKED") end; stops = stops + 1 end
+    B.SetLocked(false)
+    holder.scripts.OnDragStart(holder)
+    combat.on = true
+    holder.scripts.OnDragStop(holder)
+    local grip = gripOf(reg, holder)
+    grip.scripts.OnMouseUp(grip)
+    eq(stops, 0)
+    combat.on = false
+    B.FlushPending()
+    eq(stops, 1, "stopped once after combat")
+  end)
+end)

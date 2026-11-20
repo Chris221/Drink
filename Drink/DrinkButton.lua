@@ -11,7 +11,7 @@ ns.DrinkButton = Btn
 local MIN_SIZE, MAX_SIZE = 24, 96
 
 local profile, holder, button, placeholder, placeholderLabel, grip
-local pendingHide, pendingLayout, pendingLock = false, false, nil
+local pendingHide, pendingLayout, pendingLock, pendingStop = false, false, nil, false
 
 local function inCombat()
   return InCombatLockdown and InCombatLockdown() and true or false
@@ -24,6 +24,14 @@ end
 local function savePoint()
   local p, _, rp, x, y = holder:GetPoint()
   profile.button.point = { p, rp, x, y }
+end
+
+-- Mouse released after combat began mid-drag: the holder is protected now, so leave it alone
+-- and let FlushPending stop the move and restore the saved layout.
+local function deferStop()
+  if not inCombat() then return false end
+  pendingStop, pendingLayout = true, true
+  return true
 end
 
 local function saveSize()
@@ -42,6 +50,7 @@ local function create()
   holder:RegisterForDrag("LeftButton")
   holder:SetScript("OnDragStart", function(self) if not inCombat() then self:StartMoving() end end)
   holder:SetScript("OnDragStop", function(self)
+    if deferStop() then return end
     self:StopMovingOrSizing()
     if self.SetUserPlaced then self:SetUserPlaced(false) end
     savePoint()
@@ -65,8 +74,10 @@ local function create()
   gt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
   grip:SetScript("OnMouseDown", function() if not inCombat() then holder:StartSizing("BOTTOMRIGHT") end end)
   grip:SetScript("OnMouseUp", function()
+    if deferStop() then return end
     holder:StopMovingOrSizing()
     if holder.SetUserPlaced then holder:SetUserPlaced(false) end
+    savePoint() -- sizing moves the anchor; re-read it so the button doesn't jump
     saveSize()
   end)
 
@@ -74,6 +85,9 @@ local function create()
   button:SetAllPoints(holder)
   button:RegisterForClicks("AnyUp", "AnyDown")
   button:SetAttribute("type", "item")
+  -- Always use the item on release, whatever the "cast on key down" setting is; PostClick below
+  -- hides only on that release, so the ignored key-down click can't hide the button undrunk.
+  button:SetAttribute("useOnKeyDown", false)
   button.icon = button:CreateTexture(nil, "ARTWORK")
   button.icon:SetAllPoints()
   button.count = button:CreateFontString(nil, "OVERLAY")
@@ -90,7 +104,7 @@ local function create()
     end
   end)
   button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-  button:HookScript("PostClick", function() Btn.Hide() end)
+  button:HookScript("PostClick", function(_, _, down) if not down then Btn.Hide() end end)
   button:Hide()
 end
 
@@ -130,7 +144,7 @@ function Btn.Show(drink)
   button.itemID = drink.itemID
   button:SetAttribute("item", "item:" .. drink.itemID)
   button.icon:SetTexture(drink.icon)
-  button.count:SetText((drink.count or 0) > 1 and tostring(drink.count) or "")
+  button.count:SetText((drink.count or 0) >= 1 and tostring(drink.count) or "")
   button.label:SetText(drink.name)
   button:Show()
   return true
@@ -146,6 +160,11 @@ end
 -- Re-apply anything that was requested during combat (call on PLAYER_REGEN_ENABLED).
 function Btn.FlushPending()
   if inCombat() then return end
+  if pendingStop then
+    pendingStop = false
+    holder:StopMovingOrSizing()
+    if holder.SetUserPlaced then holder:SetUserPlaced(false) end
+  end
   if pendingHide then Btn.Hide() end
   if pendingLayout then Btn.ApplyLayout() end
   if pendingLock ~= nil then Btn.SetLocked(pendingLock) end

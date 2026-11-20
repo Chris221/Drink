@@ -6,6 +6,7 @@ local Drinks = {}
 ns.Drinks = Drinks
 
 local MAX_GAP = 120      -- seconds; longer gaps (AFK, wipes) don't count as pull downtime
+local MIN_GAP = 5        -- seconds; shorter gaps are chain pulls, not a chance to drink
 local KEEP_GAPS = 5
 local MIN_GAPS = 3
 local DEFAULT_SECONDS = 30
@@ -19,11 +20,22 @@ local PATTERNS = {
   { "Restores ([%d,%.]+) mana over (%d+) sec", function(m, s) return { mana = num(m), seconds = tonumber(s) } end },
   { "Restores (%d+)%% of your mana per second for (%d+) sec", function(p, s) return { pct = tonumber(p) * tonumber(s), seconds = tonumber(s) } end },
   { "Restores (%d+)%% of your mana over (%d+) sec", function(p, s) return { pct = tonumber(p), seconds = tonumber(s) } end },
+  { "Restores (%d+)%% health and mana over (%d+) sec", function(p, s) return { pct = tonumber(p), seconds = tonumber(s) } end },
 }
+
+-- Every drink (and food & drink) says "Must remain seated"; channeled mana potions and gems don't.
+local function seated(lines)
+  for _, line in ipairs(lines) do
+    if type(line) == "string" and string.find(string.lower(line), "remain seated", 1, true) then return true end
+  end
+  return false
+end
 
 -- lines: tooltip text lines. Returns {mana=, seconds=} or {pct=, seconds=}, or nil if not a drink.
 function Drinks.ParseTooltip(lines)
-  for _, line in ipairs(lines or {}) do
+  lines = lines or {}
+  if not seated(lines) then return nil end
+  for _, line in ipairs(lines) do
     if type(line) == "string" then
       for _, p in ipairs(PATTERNS) do
         local a, b, c = string.match(line, p[1])
@@ -55,13 +67,23 @@ function Drinks.IsConjured(name, lines)
 end
 
 -- "name or itemID = mana[, seconds]" per line. Keys: lowercase name or id string.
+-- Mana may use thousands commas ("1,200,000"). A comma followed by a space, or by a group that
+-- isn't exactly 3 digits, separates the seconds ("4200, 27", "4200,27", "1,200,000, 20").
+local function parseValue(v)
+  local mana, secs = v, nil
+  local head, sep, tail = string.match(v, "^(.*),(%s*)(%d+)$")
+  if head and (sep ~= "" or #tail ~= 3) then mana, secs = head, tail end
+  mana = string.match(mana, "^%s*(%d[%d,]*)%s*$")
+  if not mana then return nil end
+  return { mana = tonumber((string.gsub(mana, ",", ""))), seconds = tonumber(secs) or DEFAULT_SECONDS }
+end
+
 function Drinks.ParseOverrides(text)
   local out = {}
   for line in string.gmatch((text or "") .. "\n", "([^\n]*)\n") do
-    local key, mana, secs = string.match(line, "^%s*(.-)%s*=%s*(%d+)%s*,?%s*(%d*)%s*$")
-    if key and key ~= "" then
-      out[string.lower(key)] = { mana = tonumber(mana), seconds = tonumber(secs) or DEFAULT_SECONDS }
-    end
+    local key, value = string.match(line, "^%s*(.-)%s*=%s*(.-)%s*$")
+    local parsed = key and key ~= "" and parseValue(value)
+    if parsed then out[string.lower(key)] = parsed end
   end
   return out
 end
@@ -119,7 +141,7 @@ function Downtime:RecordStart(t)
   if not self.lastEnd then return end
   local gap = t - self.lastEnd
   self.lastEnd = nil
-  if gap < 0 or gap > MAX_GAP then return end
+  if gap < MIN_GAP or gap > MAX_GAP then return end
   self.gaps[#self.gaps + 1] = gap
   while #self.gaps > KEEP_GAPS do table.remove(self.gaps, 1) end
 end

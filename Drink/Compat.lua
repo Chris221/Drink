@@ -92,7 +92,9 @@ end
 -- Drinks in bags ------------------------------------------------------------
 
 local Drinks = ns.Drinks
-local BAGS_FIRST, BAGS_LAST = 0, 5   -- backpack, 4 bags, reagent bag (absent bags report 0 slots)
+-- Backpack + equipped bags (+ Retail/_forever_ reagent bag). Never NUM_BAG_SLOTS + 1 on Classic:
+-- there that index is the first bank bag.
+local function lastBag() return NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4 end
 local COOLDOWN_GCD = 1.5
 local parseCache = {}                -- itemID -> { parsed = table|false, conjured = bool }
 
@@ -175,7 +177,7 @@ end
 function Compat.ScanDrinks(overrides)
   overrides = overrides or {}
   local counts, icons, order = {}, {}, {}
-  for bag = BAGS_FIRST, BAGS_LAST do
+  for bag = 0, lastBag() do
     for slot = 1, numSlots(bag) do
       local id, count, icon = slotItem(bag, slot)
       if id then

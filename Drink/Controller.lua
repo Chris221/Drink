@@ -148,7 +148,8 @@ function Controller:OnEnteringWorld(isReload, instanceType)
   if isReload then return end
   self:OnZoneChanged()
   if self.p.stock.enabled and (instanceType == "party" or instanceType == "raid") then
-    self.env.after(STOCK_DELAY, function() self:StockCheck() end)
+    -- Skip while dead/ghost (corpse run): items may read as unusable and falsely say STOCK UP.
+    self.env.after(STOCK_DELAY, function() if not self.env.isDead() then self:StockCheck() end end)
   end
 end
 
@@ -176,6 +177,7 @@ function Controller:OnAuraChanged()
   if drinking and not self.drinking then
     self.drinking = true
     env.hideAlert()
+    env.hideDrinkButton() -- drank from the action bar (or the button): the button's job is done
     local an = self.p.announce
     local pct = env.getManaPct()
     -- Never at 100%: stat food / feasts named "Food & Drink" would otherwise spam the raid.
