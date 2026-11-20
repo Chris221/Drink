@@ -88,3 +88,121 @@ function Compat.GroupInCombat()
   end
   return false
 end
+
+-- Drinks in bags ------------------------------------------------------------
+
+local Drinks = ns.Drinks
+local BAGS_FIRST, BAGS_LAST = 0, 5   -- backpack, 4 bags, reagent bag (absent bags report 0 slots)
+local COOLDOWN_GCD = 1.5
+local parseCache = {}                -- itemID -> { parsed = table|false, conjured = bool }
+
+function Compat.GetMaxMana()
+  local max = UnitPowerMax("player", manaType())
+  if isSecret(max) or not max or max <= 0 then return nil end
+  return max
+end
+
+local function numSlots(bag)
+  local f = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
+  return f and f(bag) or 0
+end
+
+-- itemID, count, icon for a bag slot (or nil when empty)
+local function slotItem(bag, slot)
+  if C_Container and C_Container.GetContainerItemInfo then
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if info then return info.itemID, info.stackCount, info.iconFileID end
+    return nil
+  end
+  local id = GetContainerItemID(bag, slot)
+  if not id then return nil end
+  local icon, count = GetContainerItemInfo(bag, slot)
+  return id, count, icon
+end
+
+local function itemInfo(id)
+  local f = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  local name, _, _, _, minLevel = f(id)
+  return name, minLevel
+end
+
+local scanTip
+local function tooltipLines(id)
+  local lines = {}
+  if C_TooltipInfo and C_TooltipInfo.GetItemByID then
+    local data = C_TooltipInfo.GetItemByID(id)
+    for i, line in ipairs(data and data.lines or {}) do lines[i] = line.leftText end
+    return lines
+  end
+  if not scanTip then
+    scanTip = CreateFrame("GameTooltip", "DrinkScanTooltip", nil, "GameTooltipTemplate")
+  end
+  scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
+  scanTip:ClearLines()
+  scanTip:SetItemByID(id)
+  for i = 1, scanTip:NumLines() do
+    local fs = _G["DrinkScanTooltipTextLeft" .. i]
+    lines[i] = fs and fs:GetText()
+  end
+  return lines
+end
+
+local function isUsable(id, minLevel)
+  if minLevel and UnitLevel and minLevel > UnitLevel("player") then return false end
+  local usable = (C_Item and C_Item.IsUsableItem) or IsUsableItem
+  if usable and not usable(id) then return false end
+  local cooldown = (C_Container and C_Container.GetItemCooldown) or GetItemCooldown
+  if cooldown then
+    local start, duration = cooldown(id)
+    if start and start > 0 and duration and duration > COOLDOWN_GCD then return false end
+  end
+  return true
+end
+
+local function parsedFor(id, name)
+  local cached = parseCache[id]
+  if cached == nil then
+    local lines = tooltipLines(id)
+    cached = { parsed = Drinks.ParseTooltip(lines) or false, conjured = Drinks.IsConjured(name, lines) }
+    -- A 0-1 line tooltip means item data hadn't loaded yet: don't remember it as "not a drink".
+    if cached.parsed or #lines >= 2 then parseCache[id] = cached end
+  end
+  return cached
+end
+
+-- Usable drinks in bags, one entry per itemID:
+-- { itemID, name, icon, count, mana, seconds, conjured }
+function Compat.ScanDrinks(overrides)
+  overrides = overrides or {}
+  local counts, icons, order = {}, {}, {}
+  for bag = BAGS_FIRST, BAGS_LAST do
+    for slot = 1, numSlots(bag) do
+      local id, count, icon = slotItem(bag, slot)
+      if id then
+        if not counts[id] then order[#order + 1] = id; counts[id] = 0; icons[id] = icon end
+        counts[id] = counts[id] + (count or 1)
+      end
+    end
+  end
+
+  local maxMana = Compat.GetMaxMana() or 0
+  local out = {}
+  for _, id in ipairs(order) do
+    local name, minLevel = itemInfo(id)
+    if name then
+      local override = overrides[string.lower(name)] or overrides[tostring(id)]
+      local info = parsedFor(id, name)
+      local mana, seconds
+      if override then
+        mana, seconds = override.mana, override.seconds
+      elseif info.parsed then
+        mana, seconds = Drinks.Resolve(info.parsed, maxMana)
+      end
+      if mana and mana > 0 and isUsable(id, minLevel) then
+        out[#out + 1] = { itemID = id, name = name, icon = icons[id], count = counts[id],
+                          mana = mana, seconds = seconds, conjured = info.conjured }
+      end
+    end
+  end
+  return out
+end

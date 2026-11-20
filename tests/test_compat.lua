@@ -1,6 +1,9 @@
 local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAuras", "UnitBuff",
   "C_ChatInfo", "SendChatMessage", "IsInGroup", "IsInRaid", "LE_PARTY_CATEGORY_INSTANCE", "LE_PARTY_CATEGORY_HOME",
-  "UnitAffectingCombat", "GetNumGroupMembers" }
+  "UnitAffectingCombat", "GetNumGroupMembers",
+  "C_Container", "GetContainerNumSlots", "GetContainerItemID", "GetContainerItemInfo", "C_Item", "GetItemInfo",
+  "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
+  "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
 local function with_globals(g, fn)
@@ -9,6 +12,7 @@ local function with_globals(g, fn)
   local ns = {}
   local ok, err = pcall(function()
     load_addon(ns, "Drink/Logic.lua")
+    load_addon(ns, "Drink/Drinks.lua")
     load_addon(ns, "Drink/Compat.lua")
     fn(ns.Compat, ns)
   end)

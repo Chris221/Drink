@@ -7,6 +7,7 @@ local FILES = {
   "test_controller",
   "test_recommend",
   "test_compat",
+  "test_scan",
   "test_load",
   "test_options",
   "test_alert",
