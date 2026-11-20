@@ -1,0 +1,134 @@
+local ns = {}
+load_addon(ns, "Drink/Logic.lua")
+load_addon(ns, "Drink/Defaults.lua")
+load_addon(ns, "Drink/Options.lua")
+
+local function build()
+  local profile = deepcopy(ns.defaults.profile)
+  local opts = ns.BuildOptions(function() return profile end)
+  return opts, profile
+end
+
+local function leaves(group, out)
+  out = out or {}
+  for key, opt in pairs(group.args or {}) do
+    if opt.type == "group" then leaves(opt, out)
+    else opt._key = key; out[#out + 1] = opt end
+  end
+  return out
+end
+
+local function at(t, path)
+  for _, k in ipairs(path) do t = t[k] end
+  return t
+end
+
+local function shape(t)
+  if type(t) ~= "table" then return type(t) end
+  local s = {}
+  for k, v in pairs(t) do s[k] = shape(v) end
+  return s
+end
+
+local function valid(opt, v)
+  if not opt.validate then return true end
+  return opt.validate({}, v) == true
+end
+
+local function candidate(opt, cur)
+  if opt.type == "toggle" then return not cur end
+  if opt.type == "input" then return cur .. "x" end
+  if opt.type == "select" then
+    local values = type(opt.values) == "function" and opt.values() or opt.values
+    for k in pairs(values) do if k ~= cur then return k end end
+  end
+  if opt.type == "range" then
+    local step = opt.step or 1
+    for _, v in ipairs({ cur + step, cur - step, opt.min, opt.max }) do
+      if v ~= cur and v >= opt.min and v <= opt.max and valid(opt, v) then return v end
+    end
+  end
+end
+
+test("options: every setting round-trips into its profile path", function()
+  local opts, profile = build()
+  local before = shape(profile)
+  local n = 0
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.type ~= "execute" and opt.type ~= "description" and opt.type ~= "header" then
+      truthy(type(opt.arg) == "table", opt._key .. " has no profile path")
+      local cur = opt.get({})
+      local v = candidate(opt, cur)
+      truthy(v ~= nil, "no candidate value for " .. opt._key)
+      opt.set({}, v)
+      eq(opt.get({}), v, opt._key .. " get after set")
+      eq(at(profile, opt.arg), v, opt._key .. " stored at profile path")
+      n = n + 1
+    end
+  end
+  truthy(n >= 25, "expected at least 25 settings, got " .. n)
+  eq(shape(profile), before, "no new profile keys created")
+end)
+
+test("options: cutoffs must stay ordered", function()
+  local opts = build()
+  local heads
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.arg and opt.arg[1] == "cutoffs" and opt.arg[2] == "heads" then heads = opt end
+  end
+  truthy(heads, "heads cutoff option missing")
+  truthy(type(heads.validate({}, 85)) == "string", "85 above fyi=80 must be rejected")
+  truthy(type(heads.validate({}, 15)) == "string", "15 below low=20 must be rejected")
+  eq(heads.validate({}, 60), true)
+end)
+
+test("options: channel choices", function()
+  local opts = build()
+  local found = 0
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.arg and opt.arg[2] == "channel" then
+      found = found + 1
+      local keys = {}
+      for k in pairs(opt.values) do keys[#keys + 1] = k end
+      table.sort(keys)
+      eq(keys, { "AUTO", "INSTANCE_CHAT", "OFF", "PARTY", "RAID" })
+    end
+  end
+  eq(found, 2, "announce and report channel selects")
+end)
+
+test("options: test buttons preview each tier", function()
+  local opts = build()
+  local previewed = {}
+  ns.ctrl = function() return { Preview = function(_, k) previewed[#previewed + 1] = k end } end
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.type == "execute" then opt.func({}) end
+  end
+  ns.ctrl = nil
+  table.sort(previewed)
+  eq(previewed, { "announce", "critical", "fyi", "heads", "low", "report" })
+end)
+
+test("options: slash commands", function()
+  local _, profile = build()
+  local calls = {}
+  ns.ctrl = function() return { Preview = function(_, k) calls[#calls + 1] = "preview:" .. k; return k ~= "bogus" end } end
+  ns.Alert = { SetLocked = function(v) calls[#calls + 1] = "locked:" .. tostring(v) end }
+  ns.OpenOptions = function() calls[#calls + 1] = "open" end
+  local printed = {}
+  local say = function(m) printed[#printed + 1] = m end
+
+  ns.HandleSlash("", say)
+  ns.HandleSlash("test low", say)
+  ns.HandleSlash("TEST Critical", say)
+  ns.HandleSlash("unlock", say)
+  ns.HandleSlash("lock", say)
+  eq(calls, { "open", "preview:low", "preview:critical", "locked:false", "locked:true" })
+  eq(#printed, 0)
+
+  ns.HandleSlash("test bogus", say)
+  ns.HandleSlash("dance", say)
+  eq(#printed, 2, "usage printed for bad input")
+  truthy(printed[1]:find("/drink test", 1, true), "usage mentions /drink test")
+  ns.ctrl, ns.Alert, ns.OpenOptions = nil, nil, nil
+end)

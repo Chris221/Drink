@@ -7,6 +7,7 @@ local FILES = {
   "test_compat",
   "test_load",
   "test_options",
+  "test_alert",
 }
 
 local tests = {}
