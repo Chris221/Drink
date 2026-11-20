@@ -12,5 +12,6 @@ Defaults.lua
 Compat.lua
 Controller.lua
 Alert.lua
+DrinkButton.lua
 Options.lua
 Drink.lua

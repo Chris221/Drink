@@ -31,7 +31,7 @@ end)
 test("load: toc file order and existence", function()
   local files = tocFiles()
   eq(files, { "embeds.xml", "Logic.lua", "Drinks.lua", "Defaults.lua", "Compat.lua", "Controller.lua",
-    "Alert.lua", "Options.lua", "Drink.lua" })
+    "Alert.lua", "DrinkButton.lua", "Options.lua", "Drink.lua" })
   for _, f in ipairs(files) do truthy(exists("Drink/" .. f), "missing Drink/" .. f) end
 end)
 
@@ -97,7 +97,7 @@ test("load: glue env implements the full controller env contract", function()
         truthy(type(realEnv[k]) == "function", "real env missing " .. k)
       end
     end
-    for _, ev in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "UNIT_AURA", "PLAYER_ENTERING_WORLD" }) do
+    for _, ev in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "UNIT_AURA", "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA" }) do
       truthy(type(addon[ev]) == "function", "missing handler " .. ev)
     end
   end)

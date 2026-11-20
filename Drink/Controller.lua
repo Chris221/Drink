@@ -9,6 +9,7 @@ ns.Controller = Controller
 
 local SAMPLE_PCT = { fyi = 90, heads = 65, low = 35, critical = 12 }
 local POLL_INTERVAL = 0.5
+local STOCK_DELAY = 3     -- seconds after a loading screen, so bag item data has settled
 
 function Controller.New(profile, env)
   return setmetatable({
@@ -147,7 +148,7 @@ function Controller:OnEnteringWorld(isReload, instanceType)
   if isReload then return end
   self:OnZoneChanged()
   if self.p.stock.enabled and (instanceType == "party" or instanceType == "raid") then
-    self:StockCheck()
+    self.env.after(STOCK_DELAY, function() self:StockCheck() end)
   end
 end
 

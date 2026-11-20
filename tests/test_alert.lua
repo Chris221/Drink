@@ -124,3 +124,31 @@ test("alert: changing scale keeps the dragged position on screen", function()
   for _, n in ipairs(G) do _G[n] = saved[n] end
   if not ok then error(err, 0) end
 end)
+
+test("alert: stock line, good vs low, silent", function()
+  local saved = {}
+  for _, n in ipairs(G) do saved[n] = _G[n] end
+  local log, frames, sounds = {}, {}, {}
+  _G.CreateFrame = function(_, name) local f = stubObject(log); frames[name] = f; return f end
+  _G.UIParent = stubObject(log)
+  _G.STANDARD_TEXT_FONT = "font"
+  _G.SOUNDKIT = {}
+  _G.PlaySound = function(id) sounds[#sounds + 1] = id end
+  local ok, err = pcall(function()
+    local ns = {}
+    load_addon(ns, "Drink/Defaults.lua")
+    load_addon(ns, "Drink/Alert.lua")
+    local profile = deepcopy(ns.defaults.profile)
+    ns.Alert.Init(profile)
+    local f, flash = frames.DrinkAlertFrame, frames.DrinkAlertFlash
+    ns.Alert.ShowStock({ total = 34, refills = 21, low = false })
+    eq(log[#log], "Drinks: 34 (~21 refills) - you're good")
+    eq(f.shown, true); eq(flash.shown, false); eq(#sounds, 0)
+    ns.Alert.ShowStock({ total = 6, refills = 3, low = true })
+    eq(log[#log], "Drinks: 6 (~3 refills) - STOCK UP")
+    f.scripts.OnUpdate(f, 6.1)
+    eq(f.shown, false, "gone after 6s")
+  end)
+  for _, n in ipairs(G) do _G[n] = saved[n] end
+  if not ok then error(err, 0) end
+end)

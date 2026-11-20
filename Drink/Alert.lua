@@ -119,6 +119,28 @@ function Alert.Show(tier, pct)
   if style.play and not (cfg and cfg.sound == false) then style.play() end
 end
 
+-- Stock check line: green when you're good, orange when you should restock. Silent, no flash.
+local STOCK_DURATION = 6
+function Alert.ShowStock(summary)
+  if not frame then return end
+  frame.bg:Hide()
+  text:SetFont(STANDARD_TEXT_FONT, 24, "THICKOUTLINE")
+  if summary.low then
+    text:SetTextColor(1.0, 0.6, 0.1)
+    text:SetText(string.format("Drinks: %d (~%d refills) - STOCK UP", summary.total, summary.refills))
+  else
+    text:SetTextColor(0.4, 1.0, 0.4)
+    text:SetText(string.format("Drinks: %d (~%d refills) - you're good", summary.total, summary.refills))
+  end
+  text:SetAlpha(1)
+  frame.t = 0
+  frame.duration = STOCK_DURATION
+  frame.pulse = false
+  frame:SetScript("OnUpdate", onUpdate)
+  frame:Show()
+  flash:Hide()
+end
+
 function Alert.Hide()
   if not frame then return end
   if not profile.alert.locked then
@@ -132,6 +154,7 @@ end
 
 function Alert.SetLocked(locked)
   profile.alert.locked = locked
+  if ns.DrinkButton and ns.DrinkButton.SetLocked then ns.DrinkButton.SetLocked(locked) end
   if not frame then return end
   frame:SetScript("OnUpdate", nil)
   flash:Hide()

@@ -11,6 +11,7 @@ local FILES = {
   "test_load",
   "test_options",
   "test_alert",
+  "test_button",
 }
 
 local tests = {}

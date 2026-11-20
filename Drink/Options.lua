@@ -139,11 +139,55 @@ function ns.BuildOptions(getProfile)
             { min = 0, max = 30, step = 1, desc = "Prevents the report and the drinking message double-posting." }),
         },
       },
+      drinks = {
+        type = "group", name = "Drinks", order = nextOrder(),
+        args = {
+          recommend = {
+            type = "group", inline = true, name = "Drink recommendation", order = nextOrder(),
+            args = {
+              enabled = opt("toggle", { "recommend", "enabled" }, "Recommend a drink after combat", { width = "full" }),
+              below = opt("range", { "recommend", "below" }, "Only when mana is below %",
+                { min = 1, max = 100, step = 1, desc = "100 = always." }),
+              seconds = opt("range", { "recommend", "seconds" }, "Button visible for (sec)", { min = 2, max = 15, step = 1 }),
+              preferConjured = opt("toggle", { "recommend", "preferConjured" }, "Prefer mage water", { width = "full" }),
+              useDowntime = opt("toggle", { "recommend", "useDowntime" }, "Factor in time between pulls"),
+              downtimeInfo = {
+                type = "description", order = nextOrder(), width = "full",
+                name = function()
+                  local c = ns.ctrl and ns.ctrl()
+                  local info = c and c:DowntimeInfo()
+                  if not info or not info.estimate then
+                    return string.format("Time between pulls: learning (%d of 3 pulls seen in this zone)", info and info.count or 0)
+                  end
+                  return string.format("Time between pulls: ~%ds (last %d pulls)", math.floor(info.estimate + 0.5), info.count)
+                end,
+              },
+              size = opt("range", { "button", "size" }, "Button size", { min = 24, max = 96, step = 1 },
+                function() if ns.DrinkButton then ns.DrinkButton.ApplyLayout() end end),
+              overrides = opt("input", { "recommend", "overrides" }, "Manual drink values (name or item ID = mana[, seconds])",
+                { multiline = 4, width = "full",
+                  desc = "For drinks the tooltip reader doesn't recognize, or to correct one. Example: Morning Glory Dew = 2934, 27" },
+                function() if ns.RefreshOverrides then ns.RefreshOverrides() end end),
+              test = { type = "execute", name = "Test recommendation", order = nextOrder(),
+                       func = function() preview("drink") end },
+            },
+          },
+          stock = {
+            type = "group", inline = true, name = "Stock check when entering a dungeon or raid", order = nextOrder(),
+            args = {
+              enabled = opt("toggle", { "stock", "enabled" }, "Enabled"),
+              threshold = opt("range", { "stock", "threshold" }, "Warn when fewer than N drinks", { min = 1, max = 200, step = 1 }),
+              test = { type = "execute", name = "Check stock now", order = nextOrder(),
+                       func = function() preview("stock") end },
+            },
+          },
+        },
+      },
     },
   }
 end
 
-local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report>, /drink lock, /drink unlock"
+local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report, drink>, /drink stock, /drink lock, /drink unlock"
 
 -- Returns nothing; `say` prints user-facing messages.
 function ns.HandleSlash(input, say)
@@ -153,6 +197,9 @@ function ns.HandleSlash(input, say)
   elseif cmd == "test" then
     local ctrl = ns.ctrl and ns.ctrl()
     if not (ctrl and ctrl:Preview(arg)) then say(USAGE) end
+  elseif cmd == "stock" then
+    local ctrl = ns.ctrl and ns.ctrl()
+    if ctrl then ctrl:Preview("stock") end
   elseif cmd == "lock" or cmd == "unlock" then
     if ns.Alert then ns.Alert.SetLocked(cmd == "lock") end
     if ns.NotifyOptionsChanged then ns.NotifyOptionsChanged() end

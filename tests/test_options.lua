@@ -106,7 +106,7 @@ test("options: test buttons preview each tier", function()
   end
   ns.ctrl = nil
   table.sort(previewed)
-  eq(previewed, { "announce", "critical", "fyi", "heads", "low", "report" })
+  eq(previewed, { "announce", "critical", "drink", "fyi", "heads", "low", "report", "stock" })
 end)
 
 test("options: slash commands", function()
@@ -154,4 +154,28 @@ test("options: slash lock/unlock refreshes an open options panel; usage lists un
   eq(notified, 2)
   truthy(printed[1]:find("unknown", 1, true), "usage mentions test unknown")
   ns.Alert, ns.NotifyOptionsChanged = nil, nil
+end)
+
+test("options: /drink stock and /drink test drink", function()
+  local calls = {}
+  ns.ctrl = function() return { Preview = function(_, k) calls[#calls + 1] = k; return true end } end
+  ns.HandleSlash("stock", function() end)
+  ns.HandleSlash("test drink", function() end)
+  eq(calls, { "stock", "drink" })
+  local printed = {}
+  ns.HandleSlash("dance", function(m) printed[#printed + 1] = m end)
+  truthy(printed[1]:find("drink>", 1, true) and printed[1]:find("/drink stock", 1, true), "usage mentions new commands")
+  ns.ctrl = nil
+end)
+
+test("options: drinks tab settings exist", function()
+  local opts = build()
+  local paths = {}
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.arg then paths[table.concat(opt.arg, ".")] = true end
+  end
+  for _, p in ipairs({ "recommend.enabled", "recommend.below", "recommend.seconds", "recommend.preferConjured",
+      "recommend.useDowntime", "recommend.overrides", "stock.enabled", "stock.threshold", "button.size" }) do
+    truthy(paths[p], "missing option " .. p)
+  end
 end)

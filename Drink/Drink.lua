@@ -51,6 +51,7 @@ function Drink:Rebuild()
     ctrl = ns.Controller.New(self.db.profile, env)
   end
   if ns.Alert then ns.Alert.Init(self.db.profile) end
+  if ns.DrinkButton then ns.DrinkButton.Init(self.db.profile) end
 end
 
 function Drink:OnInitialize()
@@ -68,13 +69,23 @@ function Drink:OnEnable()
   self:RegisterEvent("PLAYER_REGEN_ENABLED")
   self:RegisterEvent("UNIT_AURA")
   self:RegisterEvent("PLAYER_ENTERING_WORLD")
+  self:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 end
 
 function Drink:PLAYER_REGEN_DISABLED() ctrl:OnCombatStart() end
-function Drink:PLAYER_REGEN_ENABLED() ctrl:OnCombatEnd() end
+function Drink:PLAYER_REGEN_ENABLED()
+  if ns.DrinkButton then ns.DrinkButton.FlushPending() end
+  ctrl:OnCombatEnd()
+end
 
 function Drink:UNIT_AURA(_, unit)
   if unit == "player" then ctrl:OnAuraChanged() end
 end
 
-function Drink:PLAYER_ENTERING_WORLD() ctrl:SyncDrinking() end
+function Drink:PLAYER_ENTERING_WORLD(_, isInitialLogin, isReloadingUi)
+  ctrl:SyncDrinking()
+  local _, instanceType = IsInInstance()
+  ctrl:OnEnteringWorld(isReloadingUi and true or false, instanceType)
+end
+
+function Drink:ZONE_CHANGED_NEW_AREA() ctrl:OnZoneChanged() end
