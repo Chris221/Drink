@@ -352,3 +352,82 @@ function Compat.LowManaConfirmed()
   if not ok or isSecret(insufficient) then return false end
   return insufficient == true
 end
+
+-- Extras ------------------------------------------------------------------------
+
+-- Out-of-combat mana regen per second, or nil when the game doesn't give a usable number.
+function Compat.GetManaRegen()
+  if not GetManaRegen then return nil end
+  local ok, base = pcall(GetManaRegen)
+  if not ok or isSecret(base) or type(base) ~= "number" or base <= 0 then return nil end
+  return base
+end
+
+-- Name of a mage in my group (not me), or nil. Secret class/name values are skipped untested.
+function Compat.FindMage()
+  if not (IsInGroup and IsInGroup()) or not UnitClass or not UnitName then return nil end
+  local raid = IsInRaid and IsInRaid()
+  local n = GetNumGroupMembers and GetNumGroupMembers() or 0
+  local count = raid and n or n - 1
+  for i = 1, count do
+    local unit = (raid and "raid" or "party") .. i
+    local isMe = raid and UnitIsUnit and UnitIsUnit(unit, "player")
+    if isSecret(isMe) then isMe = true end
+    if not isMe then
+      local _, file = UnitClass(unit)
+      if not isSecret(file) and file == "MAGE" then
+        local name, realm = UnitName(unit)
+        if not isSecret(name) and type(name) == "string" then
+          if not isSecret(realm) and type(realm) == "string" and realm ~= "" then
+            return name .. "-" .. realm
+          end
+          return name
+        end
+      end
+    end
+  end
+  return nil
+end
+
+function Compat.SendWhisper(msg, name)
+  if C_ChatInfo and C_ChatInfo.SendChatMessage then
+    C_ChatInfo.SendChatMessage(msg, "WHISPER", nil, name)
+  else
+    SendChatMessage(msg, "WHISPER", nil, name)
+  end
+end
+
+local function curveFrom(points, curveType)
+  local c = C_CurveUtil.CreateCurve()
+  c:SetType(curveType)
+  for _, pt in ipairs(points) do c:AddPoint(pt[1], pt[2]) end
+  return c
+end
+
+local statsCurves = {} -- "itemID:max:regen" -> { seconds = curve, drinks = curve }
+
+-- Hidden mana: "[Drink] <name> x<drinks>: ~<seconds>s to full", with both numbers worked out
+-- by the game from curves (the addon can't do maths on the hidden amount). nil when linear
+-- curves aren't available or the game refuses. Decides only from pcall results.
+function Compat.HiddenStatsMessage(drink, maxMana, regen)
+  if not curvesSupported() or Enum.LuaCurveType.Linear == nil then return nil end
+  local key = tostring(drink.itemID) .. ":" .. tostring(maxMana) .. ":" .. tostring(regen or 0)
+  local curves = statsCurves[key]
+  if not curves then
+    local points = Drinks.FillCurves(drink, maxMana, regen)
+    if not points then return nil end
+    local ok, built = pcall(function()
+      return { seconds = curveFrom(points.seconds, Enum.LuaCurveType.Linear),
+               drinks = curveFrom(points.drinks, Enum.LuaCurveType.Step) }
+    end)
+    if not ok then return nil end
+    curves = built
+    statsCurves[key] = curves
+  end
+  local okS, seconds = gamePercent(curves.seconds)
+  local okD, count = gamePercent(curves.drinks)
+  if not (okS and okD) then return nil end
+  local okF, msg = pcall(string.format, "[Drink] %s x%d: ~%ds to full", drink.name, count, seconds)
+  if not okF then return nil end
+  return msg
+end

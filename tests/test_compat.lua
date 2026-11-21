@@ -4,7 +4,8 @@ local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAur
   "C_Container", "GetContainerNumSlots", "GetContainerItemID", "GetContainerItemInfo", "C_Item", "GetItemInfo",
   "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
   "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3",
-  "C_RestrictedActions", "InCombatLockdown", "C_CurveUtil", "UnitPowerPercent", "CurveConstants", "C_SpellBook", "C_Spell" }
+  "C_RestrictedActions", "InCombatLockdown", "C_CurveUtil", "UnitPowerPercent", "CurveConstants", "C_SpellBook", "C_Spell",
+  "GetManaRegen", "UnitClass", "UnitName", "UnitIsUnit" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
 local function with_globals(g, fn)
@@ -264,4 +265,85 @@ test("compat: low mana confirmed when the costliest spell is unaffordable", func
   with_globals(spellWorld(true), function(C) eq(C.LowManaConfirmed(), true) end)
   with_globals(spellWorld(false), function(C) eq(C.LowManaConfirmed(), false) end)
   with_globals(curveWorld(), function(C) eq(C.LowManaConfirmed(), false, "no spellbook API") end)
+end)
+
+-- Extras ------------------------------------------------------------------------
+
+test("compat: mana regen per second, nil when missing, secret or zero", function()
+  with_globals({ GetManaRegen = function() return 7.5, 2 end }, function(C) eq(C.GetManaRegen(), 7.5) end)
+  with_globals({}, function(C) eq(C.GetManaRegen(), nil) end)
+  with_globals({ GetManaRegen = function() return 0, 0 end }, function(C) eq(C.GetManaRegen(), nil) end)
+  with_globals({ GetManaRegen = function() return SECRET end, issecretvalue = function(v) return v == SECRET end },
+    function(C) eq(C.GetManaRegen(), nil) end)
+end)
+
+local function groupWorld(units, raid, extra)
+  local g = {
+    IsInGroup = function() return true end,
+    IsInRaid = function() return raid end,
+    GetNumGroupMembers = function() return raid and #units or #units + 1 end,
+    UnitClass = function(unit) local u = units[unit]; if u then return u.class, u.file end end,
+    UnitName = function(unit) local u = units[unit]; if u then return u.name, u.realm end end,
+    UnitIsUnit = function(unit, other) return units[unit] and units[unit].me == true and other == "player" end,
+  }
+  for k, v in pairs(extra or {}) do g[k] = v end
+  return g
+end
+
+test("compat: finds a mage in the party or raid, never me", function()
+  local party = { party1 = { name = "Anduin", file = "PRIEST" }, party2 = { name = "Jaina", file = "MAGE" } }
+  party[1], party[2] = true, true
+  with_globals(groupWorld(party, false), function(C) eq(C.FindMage(), "Jaina") end)
+  local raid = { raid1 = { name = "Me", file = "MAGE", me = true }, raid2 = { name = "Khadgar", realm = "Dalaran", file = "MAGE" } }
+  raid[1], raid[2] = true, true
+  with_globals(groupWorld(raid, true), function(C) eq(C.FindMage(), "Khadgar-Dalaran") end)
+  local none = { party1 = { name = "Anduin", file = "PRIEST" } }
+  none[1] = true
+  with_globals(groupWorld(none, false), function(C) eq(C.FindMage(), nil) end)
+  with_globals({ IsInGroup = function() return false end }, function(C) eq(C.FindMage(), nil) end)
+end)
+
+test("compat: a secret class or name is skipped, not compared", function()
+  local party = { party1 = { name = "Jaina", file = SECRET }, party2 = { name = SECRET, file = "MAGE" } }
+  party[1], party[2] = true, true
+  with_globals(groupWorld(party, false, { issecretvalue = function(v) return v == SECRET end }),
+    function(C) eq(C.FindMage(), nil) end)
+end)
+
+test("compat: whisper uses the modern or legacy send", function()
+  local calls = {}
+  with_globals({ C_ChatInfo = { SendChatMessage = function(...) calls[#calls + 1] = { "new", ... } end } },
+    function(C) C.SendWhisper("hi", "Jaina") end)
+  with_globals({ SendChatMessage = function(...) calls[#calls + 1] = { "old", ... } end },
+    function(C) C.SendWhisper("hi", "Jaina") end)
+  eq(calls, { { "new", "hi", "WHISPER", nil, "Jaina" }, { "old", "hi", "WHISPER", nil, "Jaina" } })
+end)
+
+test("compat: hidden drink stats are evaluated by the game and formatted", function()
+  local made = {}
+  local world = curveWorld({
+    Enum = { PowerType = { Mana = 0 }, LuaCurveType = { Step = 1, Linear = 0 } },
+    UnitPowerPercent = function(unit, ptype, predicted, curve)
+      made[#made + 1] = curve
+      return curve.type == 0 and 18 or 2
+    end,
+  })
+  with_globals(world, function(C)
+    local drink = { itemID = 1205, name = "Melon Juice", mana = 450, seconds = 30 }
+    eq(C.HiddenStatsMessage(drink, 1000, 0), "[Drink] Melon Juice x2: ~18s to full")
+    local linear, step
+    for _, c in ipairs(made) do if c.type == 0 then linear = c else step = c end end
+    eq(linear.points, { { 0, 67 }, { 1, 0 } })
+    eq(#step.points, 4)
+    eq(step.points[1], { 0, 3 })
+  end)
+end)
+
+test("compat: hidden drink stats give nothing when curves are unsupported or refused", function()
+  local drink = { itemID = 1205, name = "Melon Juice", mana = 450, seconds = 30 }
+  with_globals(curveWorld(), function(C) eq(C.HiddenStatsMessage(drink, 1000, 0), nil, "no linear curves") end)
+  with_globals(curveWorld({
+    Enum = { PowerType = { Mana = 0 }, LuaCurveType = { Step = 1, Linear = 0 } },
+    UnitPowerPercent = function() error("refused") end,
+  }), function(C) eq(C.HiddenStatsMessage(drink, 1000, 0), nil) end)
 end)
