@@ -188,3 +188,11 @@ test("options: solo-to-me toggles exist for both chat messages", function()
   truthy(paths["announce.soloLocal"], "announce.soloLocal")
   truthy(paths["report.soloLocal"], "report.soloLocal")
 end)
+
+test("options: /drink debug toggles the mana log", function()
+  local toggled = 0
+  ns.ToggleDebug = function() toggled = toggled + 1 end
+  ns.HandleSlash("debug", function() end)
+  eq(toggled, 1)
+  ns.ToggleDebug = nil
+end)

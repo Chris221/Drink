@@ -3,7 +3,8 @@ local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAur
   "UnitAffectingCombat", "GetNumGroupMembers",
   "C_Container", "GetContainerNumSlots", "GetContainerItemID", "GetContainerItemInfo", "C_Item", "GetItemInfo",
   "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
-  "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3" }
+  "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3",
+  "C_RestrictedActions", "InCombatLockdown" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
 local function with_globals(g, fn)
@@ -155,5 +156,29 @@ test("compat: LFG-only group is not a home party/raid (fixed channels)", functio
     eq(s, { instance = true, raid = false, party = false })
     eq(ns.Logic.PickChannel("PARTY", s), nil, "fixed PARTY must not send in an LFG-only group")
     eq(ns.Logic.PickChannel("AUTO", s), "INSTANCE_CHAT")
+  end)
+end)
+
+-- A secret value: any arithmetic or comparison on it errors, like the real thing.
+local SECRET = setmetatable({}, { __index = function() error("secret value used") end,
+  __lt = function() error("compared a secret") end, __le = function() error("compared a secret") end,
+  __div = function() error("math on a secret") end, __tostring = function() error("tostring of a secret") end })
+
+test("compat: debug line on a client with secret mana and restrictions", function()
+  with_globals({
+    Enum = { PowerType = { Mana = 0 }, AddOnRestrictionType = { Combat = 0, Encounter = 1, ChallengeMode = 2, PvPMatch = 3, Map = 4 } },
+    UnitPower = function() return SECRET end, UnitPowerMax = function() return SECRET end,
+    issecretvalue = function(v) return v == SECRET end,
+    InCombatLockdown = function() return false end,
+    C_RestrictedActions = { GetAddOnRestrictionState = function(t) return t == 4 and 2 or 0 end },
+  }, function(C)
+    eq(C.ManaDebugLine(), "mana=secret max=secret lockdown=no restrictions: Combat=0 Encounter=0 ChallengeMode=0 PvPMatch=0 Map=2")
+  end)
+end)
+
+test("compat: debug line with readable mana and no restriction API (Classic)", function()
+  local up, upm = power(615, 1445, 0)
+  with_globals({ UnitPower = up, UnitPowerMax = upm, InCombatLockdown = function() return true end }, function(C)
+    eq(C.ManaDebugLine(), "mana=615/1445 (43%) lockdown=yes restrictions: n/a")
   end)
 end)

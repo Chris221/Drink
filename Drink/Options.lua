@@ -189,7 +189,7 @@ function ns.BuildOptions(getProfile)
   }
 end
 
-local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report, drink>, /drink stock, /drink lock, /drink unlock"
+local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report, drink>, /drink stock, /drink lock, /drink unlock, /drink debug"
 
 -- Returns nothing; `say` prints user-facing messages.
 function ns.HandleSlash(input, say)
@@ -199,6 +199,8 @@ function ns.HandleSlash(input, say)
   elseif cmd == "test" then
     local ctrl = ns.ctrl and ns.ctrl()
     if not (ctrl and ctrl:Preview(arg)) then say(USAGE) end
+  elseif cmd == "debug" then
+    if ns.ToggleDebug then ns.ToggleDebug() end
   elseif cmd == "stock" then
     local ctrl = ns.ctrl and ns.ctrl()
     if ctrl then ctrl:Preview("stock") end

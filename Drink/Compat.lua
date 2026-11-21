@@ -208,3 +208,37 @@ function Compat.ScanDrinks(overrides)
   end
   return out
 end
+
+-- Diagnostics -----------------------------------------------------------------
+
+local RESTRICTIONS = { "Combat", "Encounter", "ChallengeMode", "PvPMatch", "Map" }
+
+local function describe(v)
+  if isSecret(v) then return "secret" end
+  if v == nil then return "nil" end
+  return tostring(v)
+end
+
+-- One line describing whether mana is readable and which addon restrictions are active.
+-- Never does math or comparisons on a value that might be secret.
+function Compat.ManaDebugLine()
+  local t = manaType()
+  local cur, max = UnitPower("player", t), UnitPowerMax("player", t)
+  local mana
+  if isSecret(cur) or isSecret(max) then
+    mana = "mana=" .. describe(cur) .. " max=" .. describe(max)
+  else
+    local pct = Logic.ManaPercent(cur, max)
+    mana = "mana=" .. describe(cur) .. "/" .. describe(max) .. (pct and (" (" .. pct .. "%)") or "")
+  end
+  local lockdown = (InCombatLockdown and InCombatLockdown()) and "yes" or "no"
+  local parts = {}
+  local types = Enum and Enum.AddOnRestrictionType
+  local get = C_RestrictedActions and C_RestrictedActions.GetAddOnRestrictionState
+  if types and get then
+    for _, name in ipairs(RESTRICTIONS) do
+      if types[name] ~= nil then parts[#parts + 1] = name .. "=" .. describe(get(types[name])) end
+    end
+  end
+  return mana .. " lockdown=" .. lockdown .. " restrictions: " .. (#parts > 0 and table.concat(parts, " ") or "n/a")
+end

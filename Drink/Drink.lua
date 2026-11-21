@@ -9,6 +9,27 @@ local ctrl, env, nameSet, overrideSet = nil, nil, {}, {}
 
 function ns.ctrl() return ctrl end
 
+-- /drink debug: log when mana is readable and which addon restrictions are active (session only).
+local debugOn = false
+local function debugLog(what)
+  if debugOn and Compat.ManaDebugLine then
+    print("|cff33ccff[Drink debug]|r " .. what .. ": " .. Compat.ManaDebugLine())
+  end
+end
+
+function ns.ToggleDebug()
+  debugOn = not debugOn
+  print("|cff33ccff[Drink debug]|r " .. (debugOn and "on (until /reload or /drink debug)" or "off"))
+  debugLog("now")
+end
+
+local function debugAfterCombat()
+  if not debugOn or not (C_Timer and C_Timer.After) then return end
+  for _, s in ipairs({ 1, 3, 10, 30 }) do
+    C_Timer.After(s, function() debugLog("combat ended +" .. s .. "s") end)
+  end
+end
+
 function ns.RefreshOverrides()
   overrideSet = ns.Drinks.ParseOverrides(Drink.db.profile.recommend.overrides)
 end
@@ -70,10 +91,20 @@ function Drink:OnEnable()
   self:RegisterEvent("UNIT_AURA")
   self:RegisterEvent("PLAYER_ENTERING_WORLD")
   self:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+  if C_RestrictedActions then self:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED") end
 end
 
-function Drink:PLAYER_REGEN_DISABLED() ctrl:OnCombatStart() end
+function Drink:ADDON_RESTRICTION_STATE_CHANGED(_, rtype, state)
+  debugLog("restriction " .. tostring(rtype) .. " -> " .. tostring(state))
+end
+
+function Drink:PLAYER_REGEN_DISABLED()
+  debugLog("combat started")
+  ctrl:OnCombatStart()
+end
 function Drink:PLAYER_REGEN_ENABLED()
+  debugLog("combat ended")
+  debugAfterCombat()
   if ns.DrinkButton then ns.DrinkButton.FlushPending() end
   ctrl:OnCombatEnd()
 end
