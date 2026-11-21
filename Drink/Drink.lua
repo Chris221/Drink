@@ -79,8 +79,10 @@ local function buildEnv()
     hideMageButton = function() if ns.Alert and ns.Alert.HideMage then ns.Alert.HideMage() end end,
     showPullAlert = function() if ns.Alert and ns.Alert.ShowPull then ns.Alert.ShowPull() end end,
     printHiddenStats = function(drink, maxMana, regen)
-      local msg = Compat.HiddenStatsMessage and Compat.HiddenStatsMessage(drink, maxMana, regen)
-      if msg then pcall(print, msg) end
+      if not Compat.HiddenStatsMessage then return end
+      -- msg is a secret string: decide from the plain `ok` flag, never from msg itself.
+      local ok, msg = Compat.HiddenStatsMessage(drink, maxMana, regen)
+      if ok then pcall(print, msg) end
     end,
   }
 end

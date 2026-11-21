@@ -26,7 +26,9 @@ local function fight(ctrl, env, len)
   ctrl:OnCombatStart(); env:advance(len or 10); ctrl:OnCombatEnd(); env:advance(0)
 end
 local function sit(ctrl, env) env.drinking = true; ctrl:OnAuraChanged() end
-local function stand(ctrl, env) env.drinking = false; ctrl:OnAuraChanged() end
+local function standNow(ctrl, env) env.drinking = false; ctrl:OnAuraChanged() end
+-- Stand up and let the 2s "really done drinking" grace pass.
+local function stand(ctrl, env) standNow(ctrl, env); env:advance(2) end
 
 -- Once per break -------------------------------------------------------------
 
@@ -285,4 +287,63 @@ test("mage: group-chat option and chat lockdown", function()
   ctrl:RequestWater()
   eq(#env.whispers, 0)
   eq(env.printed, { "[Drink] (chat locked) Could I get some water please?" })
+end)
+
+-- Final-review fixes ---------------------------------------------------------------
+
+test("ready: waits 2s; a second drink or a pull in that time cancels it", function()
+  local ctrl, env = drank({ mana = 30, group = PARTY })
+  env.mana = 90; standNow(ctrl, env)
+  eq(#env.sent, 1, "not immediately: the drink may just have run out while I'm still seated")
+  env:advance(2)
+  eq(env.sent[2], { "Ready — 90% mana", "PARTY" })
+
+  ctrl, env = drank({ mana = 30, group = PARTY })
+  env.mana = 90; standNow(ctrl, env); env:advance(1)
+  sit(ctrl, env); env:advance(5)
+  eq(#env.sent, 1, "second drink cancels")
+
+  ctrl, env = drank({ mana = 30, group = PARTY })
+  env.mana = 90; standNow(ctrl, env); env:advance(1)
+  ctrl:OnCombatStart(); env:advance(5)
+  eq(#env.sent, 1, "pull cancels")
+
+  ctrl, env = drank({ mana = 30, group = PARTY })
+  env.mana = 90; standNow(ctrl, env); env:advance(1)
+  env.groupCombat = true; env:advance(5)
+  eq(#env.sent, 1, "group pulled during the wait")
+end)
+
+test("group combat unknown (hidden by the game): no Ready and no PULL alert", function()
+  local ctrl, env = drank({ mana = 30, group = PARTY })
+  env.groupCombat = nil
+  env:advance(3)
+  eq(env.pulls, 0)
+  env.mana = 90; stand(ctrl, env)
+  eq(#env.sent, 1)
+end)
+
+test("stats: a failure printing them never stops the pull watcher", function()
+  local ctrl, env = setup({ hiddenMana = true, maxMana = 400, group = PARTY, drinks = THREE })
+  fight(ctrl, env)
+  env.printHiddenStats = function() error("boom") end
+  env.drinking = true
+  pcall(function() ctrl:OnAuraChanged() end)
+  env.groupCombat = true; env:advance(0.5)
+  eq(env.pulls, 1)
+end)
+
+test("mage: not offered while I'm in combat", function()
+  local ctrl, env = setup({ mage = "Jaina", group = PARTY, inCombat = true, drinks = {} })
+  ctrl:StockCheck()
+  eq(#env.mageShows, 0)
+end)
+
+test("midrun: the delayed stock line doesn't replace alerts while I'm drinking", function()
+  local ctrl, env = inDungeon({ mana = 60, group = PARTY, drinks = { d("A", 800, 30, true, 25) } })
+  env.drinks = { d("A", 800, 30, true, 10) }
+  fight(ctrl, env)
+  sit(ctrl, env)
+  env:advance(5)
+  eq(#env.stocks, 1, "chat line only")
 end)

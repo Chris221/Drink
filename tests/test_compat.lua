@@ -330,7 +330,8 @@ test("compat: hidden drink stats are evaluated by the game and formatted", funct
   })
   with_globals(world, function(C)
     local drink = { itemID = 1205, name = "Melon Juice", mana = 450, seconds = 30 }
-    eq(C.HiddenStatsMessage(drink, 1000, 0), "[Drink] Melon Juice x2: ~18s to full")
+    -- Returns a plain flag first: the message itself may be secret and must never be tested.
+    eq({ C.HiddenStatsMessage(drink, 1000, 0) }, { true, "[Drink] Melon Juice x2: ~18s to full" })
     local linear, step
     for _, c in ipairs(made) do if c.type == 0 then linear = c else step = c end end
     eq(linear.points, { { 0, 67 }, { 1, 0 } })
@@ -341,9 +342,22 @@ end)
 
 test("compat: hidden drink stats give nothing when curves are unsupported or refused", function()
   local drink = { itemID = 1205, name = "Melon Juice", mana = 450, seconds = 30 }
-  with_globals(curveWorld(), function(C) eq(C.HiddenStatsMessage(drink, 1000, 0), nil, "no linear curves") end)
+  with_globals(curveWorld(), function(C) eq(C.HiddenStatsMessage(drink, 1000, 0), false, "no linear curves") end)
   with_globals(curveWorld({
     Enum = { PowerType = { Mana = 0 }, LuaCurveType = { Step = 1, Linear = 0 } },
     UnitPowerPercent = function() error("refused") end,
-  }), function(C) eq(C.HiddenStatsMessage(drink, 1000, 0), nil) end)
+  }), function(C) eq(C.HiddenStatsMessage(drink, 1000, 0), false) end)
+end)
+
+test("compat: group combat is unknown (nil) when the game hides it, never tested", function()
+  local base = { IsInGroup = function() return true end, IsInRaid = function() return false end,
+    GetNumGroupMembers = function() return 2 end, issecretvalue = function(v) return v == SECRET end }
+  local g = {}
+  for k, v in pairs(base) do g[k] = v end
+  g.UnitAffectingCombat = function() return SECRET end
+  with_globals(g, function(C) eq(C.GroupInCombat(), nil) end)
+  g.UnitAffectingCombat = function() return true end
+  with_globals(g, function(C) eq(C.GroupInCombat(), true) end)
+  g.UnitAffectingCombat = function() return false end
+  with_globals(g, function(C) eq(C.GroupInCombat(), false) end)
 end)

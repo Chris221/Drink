@@ -15,6 +15,7 @@ local MANA_POLL, MANA_WAIT = 0.25, 2
 local STOCK_DELAY = 3     -- seconds after a loading screen, so bag item data has settled
 local MAGE_SECONDS = 10   -- how long the "ask a mage" button stays up
 local MIDRUN_LINE_DELAY = 5 -- let the drink alert have its time before the stock line replaces it
+local READY_GRACE = 2     -- the drink buff ending isn't standing up: wait for a 2nd drink or a pull
 
 function Controller.New(profile, env)
   return setmetatable({
@@ -167,7 +168,8 @@ function Controller:MidRunStock()
   env.print("[Drink] STOCK UP: " .. summary.total .. " drinks left" .. detail)
   local gen = self.gen
   env.after(MIDRUN_LINE_DELAY, function()
-    if gen == self.gen then env.showStock(summary) end
+    -- Not while I'm sitting: a PULL warning matters more than the stock line (chat has it).
+    if gen == self.gen and not self.drinking then env.showStock(summary) end
   end)
 end
 
@@ -247,7 +249,7 @@ end
 
 function Controller:OfferMage(summary, drinks)
   local env = self.env
-  if not self.p.mage.enabled then return end
+  if not self.p.mage.enabled or env.inCombatNow() then return end
   local name = env.findMage()
   if not name then return end
   local hasConjured = false
@@ -313,12 +315,14 @@ function Controller:WatchForPull()
   local env = self.env
   if not self.p.alert.pullWhileDrinking or not inGroup(env.groupState()) then return end
   local token = self.drinkToken
-  local seenCalm = not env.groupInCombat() -- still finishing the last fight is not a new pull
+  -- groupInCombat() may be nil (hidden by the game): unknown is neither calm nor a pull.
+  local seenCalm = env.groupInCombat() == false -- still finishing the last fight is not a new pull
   local function poll()
     if token ~= self.drinkToken or not self.drinking or env.inCombatNow() then return end
-    if not env.groupInCombat() then
+    local fighting = env.groupInCombat()
+    if fighting == false then
       seenCalm = true
-    elseif seenCalm then
+    elseif fighting == true and seenCalm then
       env.showPullAlert()
       return
     end
@@ -332,7 +336,7 @@ end
 function Controller:MaybeReady()
   local env, r = self.env, self.p.ready
   if not r.enabled or not self.announcedThisBreak or self.readyThisBreak then return end
-  if env.inCombatNow() or env.groupInCombat() then return end
+  if env.inCombatNow() or env.groupInCombat() ~= false then return end -- unknown counts as fighting
   local pct = env.getManaPct()
   if pct then
     if pct >= r.atLeast and self:Post(Logic.FormatMessage(r.template, pct), r.channel, r.soloLocal) then
@@ -374,12 +378,19 @@ function Controller:OnAuraChanged()
         self.announcedThisBreak = true
       end
     end
+    self:WatchForPull() -- before the stats, so nothing there can stop the watcher
     self:PrintDrinkStats(pct, hidden)
-    self:WatchForPull()
   elseif not drinking then
     local was = self.drinking
     self.drinking = false
-    if was then self:MaybeReady() end
+    if was then
+      -- The buff ending isn't standing up (a drink can run out while seated): wait a moment;
+      -- a second drink or a pull cancels it.
+      local token, gen = self.drinkToken, self.gen
+      env.after(READY_GRACE, function()
+        if token == self.drinkToken and gen == self.gen and not self.drinking then self:MaybeReady() end
+      end)
+    end
   end
 end
 

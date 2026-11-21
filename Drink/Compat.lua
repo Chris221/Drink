@@ -73,17 +73,23 @@ function Compat.GroupState()
 end
 
 -- Any group member (other than the player) still in combat?
+-- true / false, or nil when the game hides the answer (a secret value): callers must treat
+-- nil as "unknown". Secret values are never tested here.
 function Compat.GroupInCombat()
   if not IsInGroup() then return false end
   local n = GetNumGroupMembers() or 0
-  if IsInRaid() then
-    for i = 1, n do
-      local unit = "raid" .. i
-      if not (UnitIsUnit and UnitIsUnit(unit, "player")) and UnitAffectingCombat(unit) then return true end
+  local raid = IsInRaid()
+  for i = 1, raid and n or n - 1 do
+    local unit = (raid and "raid" or "party") .. i
+    local me = false
+    if raid and UnitIsUnit then
+      me = UnitIsUnit(unit, "player")
+      if isSecret(me) then return nil end
     end
-  else
-    for i = 1, n - 1 do
-      if UnitAffectingCombat("party" .. i) then return true end
+    if not me then
+      local fighting = UnitAffectingCombat(unit)
+      if isSecret(fighting) then return nil end
+      if fighting then return true end
     end
   end
   return false
@@ -407,27 +413,29 @@ end
 local statsCurves = {} -- "itemID:max:regen" -> { seconds = curve, drinks = curve }
 
 -- Hidden mana: "[Drink] <name> x<drinks>: ~<seconds>s to full", with both numbers worked out
--- by the game from curves (the addon can't do maths on the hidden amount). nil when linear
--- curves aren't available or the game refuses. Decides only from pcall results.
+-- by the game from curves (the addon can't do maths on the hidden amount).
+-- Returns ok, message. `ok` is a plain boolean; the message is a SECRET string when ok, so
+-- callers must only pass it on (print), never test it. false when linear curves aren't
+-- available or the game refuses. Decides only from pcall results.
 function Compat.HiddenStatsMessage(drink, maxMana, regen)
-  if not curvesSupported() or Enum.LuaCurveType.Linear == nil then return nil end
+  if not curvesSupported() or Enum.LuaCurveType.Linear == nil then return false end
   local key = tostring(drink.itemID) .. ":" .. tostring(maxMana) .. ":" .. tostring(regen or 0)
   local curves = statsCurves[key]
   if not curves then
     local points = Drinks.FillCurves(drink, maxMana, regen)
-    if not points then return nil end
+    if not points then return false end
     local ok, built = pcall(function()
       return { seconds = curveFrom(points.seconds, Enum.LuaCurveType.Linear),
                drinks = curveFrom(points.drinks, Enum.LuaCurveType.Step) }
     end)
-    if not ok then return nil end
+    if not ok then return false end
     curves = built
     statsCurves[key] = curves
   end
   local okS, seconds = gamePercent(curves.seconds)
   local okD, count = gamePercent(curves.drinks)
-  if not (okS and okD) then return nil end
+  if not (okS and okD) then return false end
   local okF, msg = pcall(string.format, "[Drink] %s x%d: ~%ds to full", drink.name, count, seconds)
-  if not okF then return nil end
-  return msg
+  if not okF then return false end
+  return true, msg
 end
