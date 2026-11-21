@@ -172,7 +172,9 @@ test("alert: hidden mana - the game picks the tier, the % is drawn, 4s, sound on
     local f, flash, layer = frames.DrinkAlertFrame, frames.DrinkAlertFlash, frames.DrinkAlertHidden
     truthy(layer and layer.texts, "hidden layer with a text per tier")
 
-    ns.Alert.ShowHidden({ percent = 12, alpha = { critical = 1, low = 0, heads = 0, fyi = 0 } }, false)
+    -- has/hasPercent are plain booleans; alpha/percent may be secrets the addon must never test.
+    local ALL = { critical = true, low = true, heads = true, fyi = true }
+    ns.Alert.ShowHidden({ percent = 12, hasPercent = true, alpha = { critical = 1, low = 0, heads = 0, fyi = 0 }, has = ALL }, false)
     eq(f.shown, true); eq(layer.shown, true)
     eq(layer.texts.critical.text, "DRINK!  12% mana")
     eq(layer.texts.critical.alpha, 1); eq(layer.texts.fyi.alpha, 0)
@@ -182,15 +184,22 @@ test("alert: hidden mana - the game picks the tier, the % is drawn, 4s, sound on
     f.scripts.OnUpdate(f, 3.9); eq(f.shown, true)
     f.scripts.OnUpdate(f, 0.2); eq(f.shown, false, "4s")
 
-    ns.Alert.ShowHidden({ percent = 9, alpha = { critical = 1 } }, true)
+    ns.Alert.ShowHidden({ percent = 9, hasPercent = true, alpha = { critical = 1 }, has = { critical = true } }, true)
     eq(sounds, { 8959 }, "confirmed low: critical sound")
     eq(layer.texts.heads.alpha, 0, "a tier missing from the view stays invisible")
 
     ns.Alert.Show("low", 30)
     eq(layer.shown, false, "normal alert hides the hidden layer")
     profile.tiers.critical.flash = false
-    ns.Alert.ShowHidden({ percent = 9, alpha = { critical = 1 } }, false)
+    ns.Alert.ShowHidden({ percent = 9, hasPercent = true, alpha = { critical = 1 }, has = { critical = true } }, false)
     eq(flash.shown, false)
+    profile.tiers.critical.flash = true
+
+    -- The game refused a curve: decide from the flags only, never from the value itself.
+    ns.Alert.ShowHidden({ percent = "?", hasPercent = false, alpha = { critical = "?" }, has = {} }, false)
+    eq(layer.texts.critical.alpha, 0, "no flag: invisible")
+    eq(flash.shown, false, "no flag: no flash")
+    eq(layer.texts.critical.text, "DRINK!", "no percent flag: plain text")
   end)
   for _, n in ipairs(G) do _G[n] = saved[n] end
   if not ok then error(err, 0) end

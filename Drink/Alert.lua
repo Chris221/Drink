@@ -174,7 +174,9 @@ function Alert.ShowStock(summary)
   flash:Hide()
 end
 
--- Hidden mana (_forever_): view = { percent = <secret>, alpha = { [tier] = <secret 0/1> } }.
+-- Hidden mana (_forever_): view = { percent, hasPercent, alpha = { [tier] = v }, has = { [tier] = true } }.
+-- percent and alpha values are secret: never test or compare them, only pass them to widgets
+-- (decide from the plain has/hasPercent flags).
 -- sound: the controller confirmed low mana (can't afford the costliest spell).
 function Alert.ShowHidden(view, sound)
   if not frame then return end
@@ -182,10 +184,10 @@ function Alert.ShowHidden(view, sound)
   text:SetText("")
   for _, tier in ipairs(HIDDEN_TIERS) do
     local fs = layer.texts[tier]
-    if not pcall(fs.SetFormattedText, fs, "DRINK!  %d%% mana", view.percent) then
+    if not (view.hasPercent and pcall(fs.SetFormattedText, fs, "DRINK!  %d%% mana", view.percent)) then
       fs:SetText("DRINK!")
     end
-    if not pcall(fs.SetAlpha, fs, view.alpha[tier] or 0) then fs:SetAlpha(0) end
+    if not (view.has[tier] and pcall(fs.SetAlpha, fs, view.alpha[tier])) then fs:SetAlpha(0) end
   end
   layer:SetAlpha(1)
   layer:Show()
@@ -197,7 +199,7 @@ function Alert.ShowHidden(view, sound)
   frame:Show()
 
   local crit = profile.tiers.critical
-  if crit.enabled and crit.flash and view.alpha.critical ~= nil then
+  if crit.enabled and crit.flash and view.has.critical then
     if not pcall(flash.tex.SetAlpha, flash.tex, view.alpha.critical) then flash.tex:SetAlpha(0) end
     flash:SetAlpha(0.8)
     flash:Show()

@@ -222,6 +222,15 @@ test("compat: hidden view gives the game a band curve per tier and a 0-100 perce
     eq(view.alpha.fyi.curve.points, { { 0, 0 }, { 0.8, 1 } })
     eq(view.alpha.critical.curve.type, 1)
     eq(view.alpha.heads, nil, "disabled tier gets nothing")
+    eq(view.has, { critical = true, fyi = true }, "plain flags for what the game returned")
+    eq(view.hasPercent, true)
+  end)
+end)
+
+test("compat: hidden view flags a refused curve without touching the value", function()
+  with_globals(curveWorld({ UnitPowerPercent = function() error("refused") end, CurveConstants = { ScaleTo100 = {} } }), function(C)
+    local view = C.HiddenManaView({ { tier = "critical", from = 0, to = 0.2 } })
+    eq(view.has, {}); eq(view.hasPercent, false)
   end)
 end)
 

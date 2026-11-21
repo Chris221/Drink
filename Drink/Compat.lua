@@ -283,25 +283,38 @@ local function pctCurve()
   return percentCurve
 end
 
+-- Returns ok, value. The value may be secret: callers must not test or compare it, only
+-- pass it on to a widget. `ok` is a plain boolean.
 local function gamePercent(curve)
-  local ok, v = pcall(UnitPowerPercent, "player", manaType(), false, curve)
-  if ok then return v end
-  return nil
+  return pcall(UnitPowerPercent, "player", manaType(), false, curve)
 end
 
--- { percent = <secret 0-100>, alpha = { [tier] = <secret 0 or 1> } } for the alert to display.
+-- For the alert to display:
+--   percent = <secret 0-100>, hasPercent = bool
+--   alpha = { [tier] = <secret 0 or 1> }, has = { [tier] = true }
+-- The has/hasPercent flags are plain, so nothing ever has to test a secret value.
 function Compat.HiddenManaView(bands)
-  local view = { percent = gamePercent(pctCurve()), alpha = {} }
+  local view = { alpha = {}, has = {} }
+  local ok, pct = gamePercent(pctCurve())
+  if ok then view.percent = pct end
+  view.hasPercent = ok
   for _, b in ipairs(bands) do
-    view.alpha[b.tier] = gamePercent(bandCurve(b.from, b.to))
+    local okBand, a = gamePercent(bandCurve(b.from, b.to))
+    if okBand then
+      view.alpha[b.tier] = a
+      view.has[b.tier] = true
+    end
   end
   return view
 end
 
 -- "[Drink] <template with the real %>", for printing to my own chat (it can't be sent).
 function Compat.HiddenMessage(template)
-  local ok, msg = pcall(string.format, "[Drink] " .. Logic.TemplateFormat(template), gamePercent(pctCurve()))
-  if ok then return msg end
+  local okPct, pct = gamePercent(pctCurve())
+  if okPct then
+    local ok, msg = pcall(string.format, "[Drink] " .. Logic.TemplateFormat(template), pct)
+    if ok then return msg end
+  end
   return "[Drink] " .. Logic.WithoutNumber(template, "Drinking")
 end
 
