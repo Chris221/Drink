@@ -9,6 +9,9 @@ ns.Controller = Controller
 
 local SAMPLE_PCT = { fyi = 90, heads = 65, low = 35, critical = 12 }
 local POLL_INTERVAL = 0.5
+-- _forever_ keeps UnitPower secret in combat, and still on the first frame after combat ends.
+-- Re-read it a few times before giving up and showing "mana unknown".
+local MANA_POLL, MANA_WAIT = 0.25, 2
 local STOCK_DELAY = 3     -- seconds after a loading screen, so bag item data has settled
 
 function Controller.New(profile, env)
@@ -64,7 +67,7 @@ function Controller:OnCombatEnd()
     local function check()
       if gen ~= self.gen then return end
       if not env.groupInCombat() then
-        self:Evaluate(duration, now)
+        self:EvaluateWhenReadable(duration, now, gen)
       elseif env.now() - started < self.p.alert.waitTimeout then
         env.after(POLL_INTERVAL, check)
       end
@@ -72,9 +75,23 @@ function Controller:OnCombatEnd()
     env.after(0, check)
   else
     env.after(0, function()
-      if gen == self.gen then self:Evaluate(duration, now) end
+      if gen == self.gen then self:EvaluateWhenReadable(duration, now, gen) end
     end)
   end
+end
+
+function Controller:EvaluateWhenReadable(duration, endedAt, gen)
+  local env = self.env
+  local started = env.now()
+  local function try()
+    if gen ~= self.gen then return end -- a new pull started meanwhile
+    if env.getManaPct() or not env.hasMana() or env.now() - started >= MANA_WAIT then
+      self:Evaluate(duration, endedAt)
+    else
+      env.after(MANA_POLL, try)
+    end
+  end
+  try()
 end
 
 -- endedAt: when combat ended; anything announced since then makes the report redundant.

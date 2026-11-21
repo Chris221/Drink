@@ -83,7 +83,7 @@ end)
 
 test("controller: secret mana shows unknown tier and sends nothing", function()
   local ctrl, env = setup({ unknownMana = true, group = PARTY }, function(p) p.report.enabled = true end)
-  fight(ctrl, env, 10)
+  fight(ctrl, env, 10); env:advance(3)
   eq(env.alerts, { { "unknown", nil } })
   env.drinking = true
   ctrl:OnAuraChanged()
@@ -356,4 +356,34 @@ test("controller: a forced channel you're not in doesn't count as solo", functio
   env.drinking = true
   ctrl:OnAuraChanged()
   eq(#env.sent, 0); eq(#env.printed, 0)
+end)
+
+-- _forever_: UnitPower is a secret value in combat and can still be secret on the first
+-- frame after PLAYER_REGEN_ENABLED. Wait briefly for a readable value.
+test("controller: mana still secret right after combat is re-read once readable", function()
+  local ctrl, env = setup({ mana = 43, unknownMana = true }, function(p) p.report.enabled = true end)
+  fight(ctrl, env, 10)
+  eq(#env.alerts, 0, "no 'unknown' alert while waiting")
+  env.unknownMana = false
+  env:advance(0.5)
+  eq(env.alerts, { { "low", 43 } })
+  eq(env.printed, { "[Drink] Mana: 43%" }, "solo report uses the real value")
+end)
+
+test("controller: mana that stays secret shows unknown after the short wait", function()
+  local ctrl, env = setup({ mana = 43, unknownMana = true })
+  fight(ctrl, env, 10)
+  env:advance(1.9)
+  eq(#env.alerts, 0)
+  env:advance(0.2)
+  eq(env.alerts, { { "unknown", nil } })
+end)
+
+test("controller: a pull during the mana wait cancels it", function()
+  local ctrl, env = setup({ mana = 43, unknownMana = true })
+  fight(ctrl, env, 10)
+  ctrl:OnCombatStart()
+  env.unknownMana = false
+  env:advance(5)
+  eq(#env.alerts, 0)
 end)
