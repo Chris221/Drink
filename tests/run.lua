@@ -6,6 +6,7 @@ local FILES = {
   "test_drinks",
   "test_controller",
   "test_recommend",
+  "test_extras",
   "test_compat",
   "test_scan",
   "test_load",

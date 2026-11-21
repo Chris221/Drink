@@ -13,6 +13,8 @@ local POLL_INTERVAL = 0.5
 -- before giving up and showing "mana unknown". (_forever_'s always-secret mana skips this.)
 local MANA_POLL, MANA_WAIT = 0.25, 2
 local STOCK_DELAY = 3     -- seconds after a loading screen, so bag item data has settled
+local MAGE_SECONDS = 10   -- how long the "ask a mage" button stays up
+local MIDRUN_LINE_DELAY = 5 -- let the drink alert have its time before the stock line replaces it
 
 function Controller.New(profile, env)
   return setmetatable({
@@ -25,6 +27,15 @@ function Controller.New(profile, env)
     announcedAt = nil,
     downtime = ns.Drinks.NewDowntime(),
     buttonToken = 0,      -- bumps on every button show; a hide timer only acts on its own show
+    -- A "break" is the time between two fights: one Drinking and one Ready post per break.
+    announcedThisBreak = false,
+    readyThisBreak = false,
+    drinkToken = 0,       -- bumps on every drink start; the pull watcher only acts on its own drink
+    lastRec = nil,        -- last recommended drink: what the drink stats assume I'm drinking
+    instanceType = nil,
+    stockWasLow = nil,    -- result of the last stock check in this instance
+    mageName = nil,       -- set while the "ask a mage" button is showing
+    mageToken = 0,
   }, Controller)
 end
 
@@ -50,6 +61,9 @@ function Controller:OnCombatStart()
   self.downtime:RecordStart(self.combatStart)
   self.env.hideAlert()    -- don't carry a DRINK alert / red flash into the next pull
   self.env.hideDrinkButton() -- runs before combat lockdown applies; never leave a stale button
+  self.announcedThisBreak = false
+  self.readyThisBreak = false
+  if self.mageName then self:HideMage() end
 end
 
 function Controller:OnCombatEnd()
@@ -134,6 +148,27 @@ function Controller:Evaluate(duration, endedAt)
   if rc.enabled and not self.drinking and (hidden or (pct and (rc.below >= 100 or pct < rc.below))) then
     self:ShowRecommendation()
   end
+
+  self:MidRunStock()
+end
+
+-- Inside an instance: warn once when the drink count drops below the threshold.
+function Controller:MidRunStock()
+  local env, st = self.env, self.p.stock
+  if not (st.enabled and st.midRun) then return end
+  if self.instanceType ~= "party" and self.instanceType ~= "raid" then return end
+  local max = env.getMaxMana()
+  if not max then return end
+  local summary = ns.Drinks.StockSummary(env.getUsableDrinks(), max, st.threshold)
+  local wasLow = self.stockWasLow
+  self.stockWasLow = summary.low
+  if not summary.low or wasLow then return end
+  local detail = summary.breakdown ~= "" and (" (" .. summary.breakdown .. ")") or ""
+  env.print("[Drink] STOCK UP: " .. summary.total .. " drinks left" .. detail)
+  local gen = self.gen
+  env.after(MIDRUN_LINE_DELAY, function()
+    if gen == self.gen then env.showStock(summary) end
+  end)
 end
 
 -- Drink recommendation ------------------------------------------------------
@@ -160,7 +195,8 @@ end
 function Controller:ShowRecommendation()
   local env = self.env
   local rec = self:Recommend()
-  if not rec or not env.showDrinkButton(rec) then return rec and nil end
+  if rec then self.lastRec = rec end
+  if not rec or not env.showDrinkButton(rec) then return nil end
   self.buttonToken = self.buttonToken + 1
   local token, gen = self.buttonToken, self.gen
   env.after(self.p.recommend.seconds, function()
@@ -180,7 +216,9 @@ end
 -- Stock check ---------------------------------------------------------------
 
 function Controller:OnEnteringWorld(isReload, instanceType)
+  self.instanceType = instanceType
   if isReload then return end
+  self.stockWasLow = nil
   self:OnZoneChanged()
   if self.p.stock.enabled and (instanceType == "party" or instanceType == "raid") then
     -- Skip while dead/ghost (corpse run): items may read as unusable and falsely say STOCK UP.
@@ -192,12 +230,118 @@ function Controller:StockCheck()
   local env = self.env
   local max = env.getMaxMana()
   if not env.hasMana() or not max then return end
-  local summary = ns.Drinks.StockSummary(env.getUsableDrinks(), max, self.p.stock.threshold)
+  local drinks = env.getUsableDrinks()
+  local summary = ns.Drinks.StockSummary(drinks, max, self.p.stock.threshold)
+  self.stockWasLow = summary.low
   env.showStock(summary)
   if summary.breakdown ~= "" then
     env.print("[Drink] " .. summary.breakdown)
   else
     env.print("[Drink] No drinks in your bags.")
+  end
+  self:OfferMage(summary, drinks)
+end
+
+-- Ask a mage for water ----------------------------------------------------------
+-- Only ever offers a button. Nothing is sent until the user clicks it (RequestWater).
+
+function Controller:OfferMage(summary, drinks)
+  local env = self.env
+  if not self.p.mage.enabled then return end
+  local name = env.findMage()
+  if not name then return end
+  local hasConjured = false
+  for _, d in ipairs(drinks) do
+    if d.conjured then hasConjured = true end
+  end
+  if not summary.low and hasConjured then return end
+  self.mageName = name
+  self.mageToken = self.mageToken + 1
+  local token = self.mageToken
+  env.showMageButton(name)
+  env.after(MAGE_SECONDS, function()
+    if token == self.mageToken and self.mageName then self:HideMage() end
+  end)
+end
+
+function Controller:HideMage()
+  self.mageName = nil
+  self.env.hideMageButton()
+end
+
+-- The click on the "ask a mage" button.
+function Controller:RequestWater()
+  local env, m = self.env, self.p.mage
+  local name = self.mageName
+  if not name then return end
+  local msg = string.gsub(m.template, "|", "||")
+  local channel = m.channel == "GROUP" and Logic.PickChannel("AUTO", env.groupState()) or nil
+  if env.chatLocked() then
+    env.print("[Drink] (chat locked) " .. msg)
+  elseif channel then
+    env.sendChat(msg, channel)
+  else
+    env.sendWhisper(msg, name)
+  end
+  self:HideMage()
+end
+
+-- Drinking --------------------------------------------------------------------
+
+-- Printed to my own chat on every drink start: time to full and drinks needed, with regen.
+function Controller:PrintDrinkStats(pct, hidden)
+  local env, rec = self.env, self.lastRec
+  if not self.p.recommend.stats or not rec then return end
+  local max = env.getMaxMana()
+  if not max then return end
+  local regen = env.getManaRegen()
+  if pct then
+    local st = ns.Drinks.FillStats(rec, max * (100 - pct) / 100, regen)
+    if not st then return end
+    if st.drinks <= 1 then
+      env.print("[Drink] " .. rec.name .. ": full in ~" .. st.seconds .. "s")
+    else
+      env.print("[Drink] " .. rec.name .. ": " .. st.drinks .. " drinks to fill (~" .. st.seconds .. "s)")
+    end
+  elseif hidden then
+    env.printHiddenStats(rec, max, regen) -- the game does the maths on the hidden amount
+  end
+end
+
+-- While I'm sitting: alert once if the group goes from calm into combat.
+function Controller:WatchForPull()
+  local env = self.env
+  if not self.p.alert.pullWhileDrinking or not inGroup(env.groupState()) then return end
+  local token = self.drinkToken
+  local seenCalm = not env.groupInCombat() -- still finishing the last fight is not a new pull
+  local function poll()
+    if token ~= self.drinkToken or not self.drinking or env.inCombatNow() then return end
+    if not env.groupInCombat() then
+      seenCalm = true
+    elseif seenCalm then
+      env.showPullAlert()
+      return
+    end
+    env.after(POLL_INTERVAL, poll)
+  end
+  env.after(POLL_INTERVAL, poll)
+end
+
+-- "Ready" when I stand up: once per break, only after an announced drink, and never while
+-- I or anyone in the group is in combat.
+function Controller:MaybeReady()
+  local env, r = self.env, self.p.ready
+  if not r.enabled or not self.announcedThisBreak or self.readyThisBreak then return end
+  if env.inCombatNow() or env.groupInCombat() then return end
+  local pct = env.getManaPct()
+  if pct then
+    if pct >= r.atLeast and self:Post(Logic.FormatMessage(r.template, pct), r.channel, r.soloLocal) then
+      self.readyThisBreak = true
+    end
+  elseif env.manaHidden() then
+    if not env.lowManaConfirmed() and self:PostHidden(r.template, r.channel, r.soloLocal, "Ready", false) then
+      self.readyThisBreak = true
+    end
   end
 end
 
@@ -211,20 +355,31 @@ function Controller:OnAuraChanged()
   end
   if drinking and not self.drinking then
     self.drinking = true
+    self.drinkToken = self.drinkToken + 1
     env.hideAlert()
     env.hideDrinkButton() -- drank from the action bar (or the button): the button's job is done
     local an = self.p.announce
     local pct = env.getManaPct()
-    if an.enabled and pct == nil and env.manaHidden() then
-      if self:PostHidden(an.template, an.channel, an.soloLocal) then self.announcedAt = env.now() end
-    -- Never at 100%: stat food / feasts named "Food & Drink" would otherwise spam the raid.
-    elseif an.enabled and pct and pct < 100 and (an.below >= 100 or pct < an.below) then
-      if self:Post(Logic.FormatMessage(an.template, pct), an.channel, an.soloLocal) then
+    local hidden = pct == nil and env.manaHidden()
+    if an.enabled and not self.announcedThisBreak then -- a 2nd drink in the same break stays quiet
+      local posted
+      if hidden then
+        posted = self:PostHidden(an.template, an.channel, an.soloLocal, "Drinking", true)
+      -- Never at 100%: stat food / feasts named "Food & Drink" would otherwise spam the raid.
+      elseif pct and pct < 100 and (an.below >= 100 or pct < an.below) then
+        posted = self:Post(Logic.FormatMessage(an.template, pct), an.channel, an.soloLocal)
+      end
+      if posted then
         self.announcedAt = env.now()
+        self.announcedThisBreak = true
       end
     end
+    self:PrintDrinkStats(pct, hidden)
+    self:WatchForPull()
   elseif not drinking then
+    local was = self.drinking
     self.drinking = false
+    if was then self:MaybeReady() end
   end
 end
 
@@ -248,9 +403,10 @@ function Controller:Post(msg, mode, soloLocal)
   return true
 end
 
--- Hidden mana: the group gets the message without the number (secret values can't be sent);
--- I get the full line with the real %, drawn by the game.
-function Controller:PostHidden(template, mode, soloLocal)
+-- Hidden mana: the group gets the message without the number (secret values can't be sent).
+-- fallback: what to send if the template is nothing but the number.
+-- echoLocal: also show me the full line with the real %, drawn by the game (always when solo).
+function Controller:PostHidden(template, mode, soloLocal, fallback, echoLocal)
   local env = self.env
   local state = env.groupState() or {}
   local channel = Logic.PickChannel(mode, state)
@@ -260,21 +416,21 @@ function Controller:PostHidden(template, mode, soloLocal)
   if self.lastPost and now - self.lastPost < self.p.dedupSeconds then return false end
   self.lastPost = now
   if channel then
-    local msg = Logic.WithoutNumber(template, "Drinking")
+    local msg = Logic.WithoutNumber(template, fallback or "Drinking")
     if env.chatLocked() then
       env.print("[Drink] (chat locked) " .. msg)
     else
       env.sendChat(msg, channel)
     end
   end
-  env.printHidden(template)
+  if echoLocal or not channel then env.printHidden(template) end
   return true
 end
 
 function Controller:Preview(kind)
   local env = self.env
-  if kind == "announce" or kind == "report" then
-    local pct = env.getManaPct() or 42
+  if kind == "announce" or kind == "report" or kind == "ready" then
+    local pct = env.getManaPct() or (kind == "ready" and 90 or 42)
     env.print("[Drink] would send: " .. Logic.FormatMessage(self.p[kind].template, pct))
     return true
   end

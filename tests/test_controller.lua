@@ -147,7 +147,13 @@ test("controller: announce once per drinking session", function()
   env:advance(6)
   env.drinking = true
   ctrl:OnAuraChanged()
-  eq(#env.sent, 2)
+  eq(#env.sent, 1, "second drink in the same break is not announced again")
+  env.drinking = false
+  ctrl:OnAuraChanged()
+  fight(ctrl, env, 10)
+  env.drinking = true
+  ctrl:OnAuraChanged()
+  eq(#env.sent, 2, "after a fight it is")
 end)
 
 test("controller: announce respects below threshold", function()

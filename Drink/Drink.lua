@@ -67,6 +67,16 @@ local function buildEnv()
     showDrinkButton = function(drink) return ns.DrinkButton and ns.DrinkButton.Show(drink) or false end,
     hideDrinkButton = function() if ns.DrinkButton then ns.DrinkButton.Hide() end end,
     showStock = function(summary) if ns.Alert and ns.Alert.ShowStock then ns.Alert.ShowStock(summary) end end,
+    getManaRegen = function() return Compat.GetManaRegen and Compat.GetManaRegen() or nil end,
+    findMage = function() return Compat.FindMage and Compat.FindMage() or nil end,
+    sendWhisper = function(msg, name) if Compat.SendWhisper then Compat.SendWhisper(msg, name) end end,
+    showMageButton = function(name) if ns.Alert and ns.Alert.ShowMage then ns.Alert.ShowMage(name) end end,
+    hideMageButton = function() if ns.Alert and ns.Alert.HideMage then ns.Alert.HideMage() end end,
+    showPullAlert = function() if ns.Alert and ns.Alert.ShowPull then ns.Alert.ShowPull() end end,
+    printHiddenStats = function(drink, maxMana, regen)
+      local msg = Compat.HiddenStatsMessage and Compat.HiddenStatsMessage(drink, maxMana, regen)
+      if msg then pcall(print, msg) end
+    end,
   }
 end
 

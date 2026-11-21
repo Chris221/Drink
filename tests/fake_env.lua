@@ -42,6 +42,14 @@ function FakeEnv.New(o)
   end
   function env.hideDrinkButton() env.buttonHides = env.buttonHides + 1; env.buttonShown = nil end
   function env.showStock(s) env.stocks[#env.stocks + 1] = s end
+  env.whispers, env.mageShows, env.pulls, env.hiddenStats = {}, {}, 0, {}
+  function env.getManaRegen() return env.regen end
+  function env.findMage() return env.mage end
+  function env.sendWhisper(msg, name) env.whispers[#env.whispers + 1] = { msg, name } end
+  function env.showMageButton(name) env.mageShown = name; env.mageShows[#env.mageShows + 1] = name end
+  function env.hideMageButton() env.mageShown = nil end
+  function env.showPullAlert() env.pulls = env.pulls + 1 end
+  function env.printHiddenStats(drink, max, regen) env.hiddenStats[#env.hiddenStats + 1] = { drink.name, max, regen } end
 
   -- Advance the clock, running due callbacks in time order (callbacks may schedule more).
   function env:advance(dt)

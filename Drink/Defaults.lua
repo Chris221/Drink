@@ -11,6 +11,7 @@ ns.defaults = {
       waitForGroup = false,
       waitTimeout = 60,
       locked = true,
+      pullWhileDrinking = true, -- alert if the group pulls while I'm sitting
       scale = 1,
       point = { "CENTER", "CENTER", 0, 180 },
     },
@@ -37,6 +38,18 @@ ns.defaults = {
       below = 50,
       template = "Mana: %m%",
     },
+    ready = {
+      enabled = true,
+      channel = "AUTO",
+      soloLocal = false,
+      atLeast = 80,        -- only say Ready at this mana % or more
+      template = "Ready — %m% mana",
+    },
+    mage = {
+      enabled = true,
+      channel = "WHISPER", -- or "GROUP"
+      template = "Could I get some water please?",
+    },
     dedupSeconds = 5,
     recommend = {
       enabled = true,
@@ -45,8 +58,9 @@ ns.defaults = {
       preferConjured = true,
       useDowntime = true,
       overrides = "",      -- "name or itemID = mana[, seconds]" per line
+      stats = true,        -- print time-to-full / drinks needed when I start drinking
     },
-    stock = { enabled = true, threshold = 20 },
+    stock = { enabled = true, threshold = 20, midRun = true },
     button = { point = { "CENTER", "CENTER", 0, 110 }, size = 40 },
   },
 }
