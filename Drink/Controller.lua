@@ -99,7 +99,7 @@ function Controller:Evaluate(duration, endedAt)
   local r = p.report
   local announcedSinceEnd = self.announcedAt and endedAt and self.announcedAt >= endedAt
   if r.enabled and pct and pct < r.below and not announcedSinceEnd then
-    self:Post(Logic.FormatMessage(r.template, pct), r.channel)
+    self:Post(Logic.FormatMessage(r.template, pct), r.channel, r.soloLocal)
   end
 
   local rc = p.recommend
@@ -182,7 +182,7 @@ function Controller:OnAuraChanged()
     local pct = env.getManaPct()
     -- Never at 100%: stat food / feasts named "Food & Drink" would otherwise spam the raid.
     if an.enabled and pct and pct < 100 and (an.below >= 100 or pct < an.below) then
-      if self:Post(Logic.FormatMessage(an.template, pct), an.channel) then
+      if self:Post(Logic.FormatMessage(an.template, pct), an.channel, an.soloLocal) then
         self.announcedAt = env.now()
       end
     end
@@ -191,14 +191,19 @@ function Controller:OnAuraChanged()
   end
 end
 
-function Controller:Post(msg, mode)
+-- soloLocal: when not in any group, show the message in my own chat window instead (never sent).
+function Controller:Post(msg, mode, soloLocal)
   local env = self.env
-  local channel = Logic.PickChannel(mode, env.groupState())
-  if not channel then return false end
+  local state = env.groupState() or {}
+  local channel = Logic.PickChannel(mode, state)
+  local solo = not (state.instance or state.raid or state.party)
+  if not channel and not (solo and soloLocal) then return false end
   local now = env.now()
   if self.lastPost and now - self.lastPost < self.p.dedupSeconds then return false end
   self.lastPost = now
-  if env.chatLocked() then
+  if not channel then
+    env.print("[Drink] " .. msg)
+  elseif env.chatLocked() then
     env.print("[Drink] (chat locked) " .. msg)
   else
     env.sendChat(msg, channel)

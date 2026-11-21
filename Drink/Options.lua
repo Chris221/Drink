@@ -83,6 +83,8 @@ function ns.BuildOptions(getProfile)
       args = {
         enabled = opt("toggle", { key, "enabled" }, "Enabled"),
         channel = opt("select", { key, "channel" }, "Channel", { values = CHANNELS }),
+        soloLocal = opt("toggle", { key, "soloLocal" }, "When solo, show it just to me",
+          { desc = "Not in a group: print the message in your own chat window. Nothing is sent." }),
         below = opt("range", { key, "below" }, "Only when mana is below %",
           { min = 1, max = 100, step = 1, desc = "100 = always." }),
         template = opt("input", { key, "template" }, "Message", { width = "full", desc = "%m is replaced with your mana %." }),

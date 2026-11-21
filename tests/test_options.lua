@@ -179,3 +179,12 @@ test("options: drinks tab settings exist", function()
     truthy(paths[p], "missing option " .. p)
   end
 end)
+
+test("options: solo-to-me toggles exist for both chat messages", function()
+  local paths = {}
+  for _, opt in ipairs(leaves(build())) do
+    if opt.arg then paths[table.concat(opt.arg, ".")] = true end
+  end
+  truthy(paths["announce.soloLocal"], "announce.soloLocal")
+  truthy(paths["report.soloLocal"], "report.soloLocal")
+end)

@@ -18,6 +18,7 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
   It skips fights shorter than 3s and stays quiet at 100% mana or when you're dead. It never fires on characters without mana. Optionally it waits until the whole group is out of combat.
 - **"Drinking — 34% mana":** posted to instance, raid or party chat (auto-picked) once each time you start drinking. It also dismisses the alert. Never posts at 100% mana (buff food) or again after a `/reload` mid-drink.
 - **End-of-fight mana report:** off by default. Posts `Mana: 42%` when you end a fight below 50%.
+- **Solo:** with no group, both messages print in your own chat window instead (nobody else sees them). Turn this off per message with "When solo, show it just to me".
 - On Retail, if Blizzard's chat lockdown is active (boss fights / M+), messages print locally instead of erroring.
 - **Which drink?** Below 80% mana after a fight, a clickable button shows the drink that refills you with the least waste. It picks the smallest usable drink that covers what you're missing. It learns the usual time between pulls in the zone, so a long drink you won't finish counts for less. Mage water is preferred (toggle). It only offers drinks in your bags that you can use. Click it to drink. It disappears after 5s, when you start drinking, or when a pull starts.
 - **Stock check:** entering a dungeon or raid shows `Drinks: 34 (~21 refills) - you're good` or `- STOCK UP` (under 20 drinks), plus a breakdown in your chat window.

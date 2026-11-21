@@ -322,3 +322,38 @@ test("controller: aura changes during combat are ignored; combat resets drinking
   env.drinking = true; ctrl:OnAuraChanged()
   eq(#env.sent, 2, "next drink after combat announces even without a falling-edge event")
 end)
+
+test("controller: solo, the drinking message is shown just to me (toggle)", function()
+  local ctrl, env = setup({ mana = 30, group = {} })
+  env.drinking = true
+  ctrl:OnAuraChanged()
+  eq(#env.sent, 0, "never sent to a channel")
+  eq(env.printed, { "[Drink] Drinking — 30% mana" })
+
+  ctrl, env = setup({ mana = 30, group = {} }, function(p) p.announce.soloLocal = false end)
+  env.drinking = true
+  ctrl:OnAuraChanged()
+  eq(#env.printed, 0, "off: silent when solo")
+end)
+
+test("controller: solo end-of-fight report is shown just to me (toggle)", function()
+  local ctrl, env = setup({ mana = 30, group = {} }, function(p) p.report.enabled = true end)
+  fight(ctrl, env, 10)
+  eq(#env.sent, 0)
+  eq(env.printed, { "[Drink] Mana: 30%" })
+end)
+
+test("controller: in a group the message still goes to the group, not printed", function()
+  local ctrl, env = setup({ mana = 30, group = PARTY })
+  env.drinking = true
+  ctrl:OnAuraChanged()
+  eq(env.sent, { { "Drinking — 30% mana", "PARTY" } })
+  eq(#env.printed, 0)
+end)
+
+test("controller: a forced channel you're not in doesn't count as solo", function()
+  local ctrl, env = setup({ mana = 30, group = PARTY }, function(p) p.announce.channel = "RAID" end)
+  env.drinking = true
+  ctrl:OnAuraChanged()
+  eq(#env.sent, 0); eq(#env.printed, 0)
+end)

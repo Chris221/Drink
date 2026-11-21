@@ -25,6 +25,7 @@ ns.defaults = {
     announce = {
       enabled = true,
       channel = "AUTO",
+      soloLocal = true,
       below = 100,
       template = "Drinking — %m% mana",
       auraNames = "Drink\nFood & Drink\nRefreshment",
@@ -32,6 +33,7 @@ ns.defaults = {
     report = {
       enabled = false,
       channel = "AUTO",
+      soloLocal = true,
       below = 50,
       template = "Mana: %m%",
     },
