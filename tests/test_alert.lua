@@ -204,3 +204,47 @@ test("alert: hidden mana - the game picks the tier, the % is drawn, 4s, sound on
   for _, n in ipairs(G) do _G[n] = saved[n] end
   if not ok then error(err, 0) end
 end)
+
+test("alert: pull warning and the ask-a-mage button", function()
+  local saved = {}
+  for _, n in ipairs(G) do saved[n] = _G[n] end
+  local log, frames, sounds = {}, {}, {}
+  _G.CreateFrame = function(_, name) local f = stubObject(log); if name then frames[name] = f end; return f end
+  _G.UIParent = stubObject(log)
+  _G.STANDARD_TEXT_FONT = "font"
+  _G.SOUNDKIT = { RAID_WARNING = 8959 }
+  _G.PlaySound = function(id) sounds[#sounds + 1] = id end
+  local ok, err = pcall(function()
+    local ns = {}
+    load_addon(ns, "Drink/Defaults.lua")
+    load_addon(ns, "Drink/Alert.lua")
+    local profile = deepcopy(ns.defaults.profile)
+    ns.Alert.Init(profile)
+    local f, flash, mage = frames.DrinkAlertFrame, frames.DrinkAlertFlash, frames.DrinkMageButton
+    truthy(mage, "mage button created")
+    eq(mage.shown, false)
+
+    ns.Alert.ShowPull()
+    eq(log[#log], "PULL - stand up!")
+    eq(f.shown, true); eq(flash.shown, false)
+    eq(sounds, { 8959 })
+    f.scripts.OnUpdate(f, 3.1)
+    eq(f.shown, false, "3s")
+    profile.tiers.critical.sound = false
+    ns.Alert.ShowPull()
+    eq(#sounds, 1, "respects the critical sound toggle")
+
+    local asked = 0
+    ns.ctrl = function() return { RequestWater = function() asked = asked + 1 end } end
+    ns.Alert.ShowMage("Jaina")
+    eq(mage.shown, true)
+    eq(mage.label.text, "Ask Jaina for water")
+    eq(asked, 0, "showing sends nothing")
+    mage.scripts.OnClick(mage)
+    eq(asked, 1)
+    ns.Alert.HideMage()
+    eq(mage.shown, false)
+  end)
+  for _, n in ipairs(G) do _G[n] = saved[n] end
+  if not ok then error(err, 0) end
+end)

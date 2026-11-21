@@ -9,6 +9,11 @@ local ctrl, env, nameSet, overrideSet = nil, nil, {}, {}
 
 function ns.ctrl() return ctrl end
 
+-- Key Bindings menu entry (see Bindings.xml): clicks the secure drink button, which keeps
+-- the last recommended drink even after it has faded.
+_G.BINDING_HEADER_DRINK = "Drink"
+_G["BINDING_NAME_CLICK DrinkUseButton:LeftButton"] = "Use recommended drink"
+
 -- /drink debug: log when mana is readable and which addon restrictions are active (session only).
 local debugOn = false
 local function debugLog(what)

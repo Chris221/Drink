@@ -86,7 +86,7 @@ test("options: channel choices", function()
   local opts = build()
   local found = 0
   for _, opt in ipairs(leaves(opts)) do
-    if opt.arg and opt.arg[2] == "channel" then
+    if opt.arg and opt.arg[2] == "channel" and opt.arg[1] ~= "mage" then
       found = found + 1
       local keys = {}
       for k in pairs(opt.values) do keys[#keys + 1] = k end
@@ -94,7 +94,7 @@ test("options: channel choices", function()
       eq(keys, { "AUTO", "INSTANCE_CHAT", "OFF", "PARTY", "RAID" })
     end
   end
-  eq(found, 2, "announce and report channel selects")
+  eq(found, 3, "announce, report and ready channel selects")
 end)
 
 test("options: test buttons preview each tier", function()
@@ -106,7 +106,7 @@ test("options: test buttons preview each tier", function()
   end
   ns.ctrl = nil
   table.sort(previewed)
-  eq(previewed, { "announce", "critical", "drink", "fyi", "heads", "low", "report", "stock" })
+  eq(previewed, { "announce", "critical", "drink", "fyi", "heads", "low", "ready", "report", "stock" })
 end)
 
 test("options: slash commands", function()
@@ -195,4 +195,36 @@ test("options: /drink debug toggles the mana log", function()
   ns.HandleSlash("debug", function() end)
   eq(toggled, 1)
   ns.ToggleDebug = nil
+end)
+
+test("options: extras settings exist", function()
+  local paths, lockNames, mageChannel = {}, {}, nil
+  for _, opt in ipairs(leaves(build())) do
+    if opt.arg then
+      local key = table.concat(opt.arg, ".")
+      paths[key] = true
+      if key == "alert.locked" then lockNames[#lockNames + 1] = opt.name end
+      if key == "mage.channel" then mageChannel = opt end
+    end
+  end
+  for _, p in ipairs({ "ready.enabled", "ready.channel", "ready.soloLocal", "ready.atLeast", "ready.template",
+      "mage.enabled", "mage.channel", "mage.template", "stock.midRun", "alert.pullWhileDrinking", "recommend.stats" }) do
+    truthy(paths[p], "missing option " .. p)
+  end
+  eq(lockNames, { "Lock alert and drink button", "Lock alert and drink button" }, "on the Alert and Drinks tabs")
+  local keys = {}
+  for k in pairs(mageChannel.values) do keys[#keys + 1] = k end
+  table.sort(keys)
+  eq(keys, { "GROUP", "WHISPER" })
+end)
+
+test("options: /drink test ready, and usage mentions it", function()
+  local calls = {}
+  ns.ctrl = function() return { Preview = function(_, k) calls[#calls + 1] = k; return k == "ready" end } end
+  ns.HandleSlash("test ready", function() end)
+  eq(calls, { "ready" })
+  local printed = {}
+  ns.HandleSlash("dance", function(m) printed[#printed + 1] = m end)
+  truthy(printed[1]:find("ready", 1, true), "usage mentions ready")
+  ns.ctrl = nil
 end)

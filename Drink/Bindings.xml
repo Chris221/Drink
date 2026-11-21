@@ -1,0 +1,3 @@
+<Bindings>
+  <Binding name="CLICK DrinkUseButton:LeftButton" header="DRINK" category="ADDONS"/>
+</Bindings>

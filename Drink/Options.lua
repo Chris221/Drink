@@ -77,6 +77,13 @@ function ns.BuildOptions(getProfile)
     return g
   end
 
+  -- One lock for the alert and the drink button; shown on both tabs.
+  local function lockOption()
+    return opt("toggle", { "alert", "locked" }, "Lock alert and drink button",
+      { desc = "Untick to drag the alert and the drink button (drag the button's corner to resize it)." },
+      function(v) if ns.Alert and ns.Alert.SetLocked then ns.Alert.SetLocked(v) end end)
+  end
+
   local function chatGroup(key, name, extra)
     local g = {
       type = "group", inline = true, name = name, order = nextOrder(),
@@ -111,8 +118,9 @@ function ns.BuildOptions(getProfile)
             { width = "full" }),
           waitTimeout = opt("range", { "alert", "waitTimeout" }, "Give up waiting after (sec)",
             { min = 10, max = 180, step = 5 }),
-          locked = opt("toggle", { "alert", "locked" }, "Lock alert position", nil,
-            function(v) if ns.Alert and ns.Alert.SetLocked then ns.Alert.SetLocked(v) end end),
+          locked = lockOption(),
+          pullWhileDrinking = opt("toggle", { "alert", "pullWhileDrinking" }, "Warn me if the group pulls while I'm drinking",
+            { width = "full" }),
           scale = opt("range", { "alert", "scale" }, "Alert scale", { min = 0.5, max = 2, step = 0.05 }, relayout),
         },
       },
@@ -137,6 +145,19 @@ function ns.BuildOptions(getProfile)
               function() if ns.RefreshAuraNames then ns.RefreshAuraNames() end end),
           }),
           report = chatGroup("report", "End-of-fight mana report"),
+          ready = {
+            type = "group", inline = true, name = "Ready when I stand up", order = nextOrder(),
+            args = {
+              enabled = opt("toggle", { "ready", "enabled" }, "Enabled",
+                { desc = "Once per break, after a drink that was announced. Never while you or anyone in the group is in combat." }),
+              channel = opt("select", { "ready", "channel" }, "Channel", { values = CHANNELS }),
+              soloLocal = opt("toggle", { "ready", "soloLocal" }, "When solo, show it just to me"),
+              atLeast = opt("range", { "ready", "atLeast" }, "Only at this mana % or more", { min = 1, max = 100, step = 1 }),
+              template = opt("input", { "ready", "template" }, "Message", { width = "full", desc = "%m is replaced with your mana %." }),
+              test = { type = "execute", name = "Preview (prints locally)", order = nextOrder(),
+                       func = function() preview("ready") end },
+            },
+          },
           dedupSeconds = opt("range", { "dedupSeconds" }, "Min seconds between posts",
             { min = 0, max = 30, step = 1, desc = "Prevents the report and the drinking message double-posting." }),
         },
@@ -153,6 +174,8 @@ function ns.BuildOptions(getProfile)
               seconds = opt("range", { "recommend", "seconds" }, "Button visible for (sec)", { min = 2, max = 15, step = 1 }),
               preferConjured = opt("toggle", { "recommend", "preferConjured" }, "Prefer mage water", { width = "full" }),
               useDowntime = opt("toggle", { "recommend", "useDowntime" }, "Factor in time between pulls"),
+              stats = opt("toggle", { "recommend", "stats" }, "When I start drinking, tell me how long it takes",
+                { width = "full", desc = "Prints time to full and drinks needed (with natural regen) in your own chat. Assumes the recommended drink." }),
               downtimeInfo = {
                 type = "description", order = nextOrder(), width = "full",
                 name = function()
@@ -166,6 +189,7 @@ function ns.BuildOptions(getProfile)
               },
               size = opt("range", { "button", "size" }, "Button size", { min = 24, max = 96, step = 1 },
                 function() if ns.DrinkButton then ns.DrinkButton.ApplyLayout() end end),
+              locked = lockOption(),
               overrides = opt("input", { "recommend", "overrides" }, "Manual drink values (name or item ID = mana[, seconds])",
                 { multiline = 4, width = "full",
                   desc = "For drinks the tooltip reader doesn't recognize, or to correct one. Example: Morning Glory Dew = 2934, 27" },
@@ -174,11 +198,22 @@ function ns.BuildOptions(getProfile)
                        func = function() preview("drink") end },
             },
           },
+          mage = {
+            type = "group", inline = true, name = "Ask a mage for water", order = nextOrder(),
+            args = {
+              enabled = opt("toggle", { "mage", "enabled" }, "Offer a button when I'm low or have no mage water",
+                { width = "full", desc = "Shown with the stock check when a mage is in your group. Nothing is sent until you click it." }),
+              channel = opt("select", { "mage", "channel" }, "Ask by",
+                { values = { WHISPER = "Whisper to the mage", GROUP = "Group chat" } }),
+              template = opt("input", { "mage", "template" }, "Message", { width = "full" }),
+            },
+          },
           stock = {
             type = "group", inline = true, name = "Stock check when entering a dungeon or raid", order = nextOrder(),
             args = {
               enabled = opt("toggle", { "stock", "enabled" }, "Enabled"),
               threshold = opt("range", { "stock", "threshold" }, "Warn when fewer than N drinks", { min = 1, max = 200, step = 1 }),
+              midRun = opt("toggle", { "stock", "midRun" }, "Also warn once if I drop below it during the run", { width = "full" }),
               test = { type = "execute", name = "Check stock now", order = nextOrder(),
                        func = function() preview("stock") end },
             },
@@ -189,7 +224,7 @@ function ns.BuildOptions(getProfile)
   }
 end
 
-local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report, drink>, /drink stock, /drink lock, /drink unlock, /drink debug"
+local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report, ready, drink>, /drink stock, /drink lock, /drink unlock, /drink debug"
 
 -- Returns nothing; `say` prints user-facing messages.
 function ns.HandleSlash(input, say)

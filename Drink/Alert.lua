@@ -21,7 +21,8 @@ local STYLE = {
 local UNKNOWN_DURATION = 3
 local FADE = 0.6
 
-local profile, frame, text, flash, layer, critHolder
+local profile, frame, text, flash, layer, critHolder, mage
+local PULL_DURATION = 3
 local HIDDEN_DURATION = 4 -- hidden mana: the addon can't tell which tier the game showed
 local HIDDEN_TIERS = { "fyi", "heads", "low", "critical" }
 
@@ -101,6 +102,24 @@ local function create()
   tex:SetBlendMode("ADD")
   flash.tex = tex
   flash:Hide()
+
+  -- "Ask <mage> for water": an ordinary click button. It only asks the controller to send;
+  -- nothing goes out unless the user clicks it.
+  mage = CreateFrame("Button", "DrinkMageButton", UIParent)
+  mage:SetSize(240, 26)
+  mage:SetFrameStrata("HIGH")
+  mage:SetPoint("TOP", frame, "BOTTOM", 0, -80)
+  local mbg = mage:CreateTexture(nil, "BACKGROUND")
+  mbg:SetAllPoints()
+  mbg:SetColorTexture(0.1, 0.35, 0.8, 0.75)
+  mage.label = mage:CreateFontString(nil, "OVERLAY")
+  mage.label:SetPoint("CENTER")
+  mage.label:SetFont(STANDARD_TEXT_FONT, 13, "OUTLINE")
+  mage:SetScript("OnClick", function()
+    local ctrl = ns.ctrl and ns.ctrl()
+    if ctrl then ctrl:RequestWater() end
+  end)
+  mage:Hide()
 end
 
 function Alert.ApplyLayout()
@@ -148,6 +167,36 @@ function Alert.Show(tier, pct)
     flash:Hide()
   end
   if style.play and not (cfg and cfg.sound == false) then style.play() end
+end
+
+-- The group pulled while I'm sitting.
+function Alert.ShowPull()
+  if not frame then return end
+  local style, crit = STYLE.critical, profile.tiers.critical
+  frame.bg:Hide()
+  frame.hiddenMode = false
+  layer:Hide()
+  text:SetFont(STANDARD_TEXT_FONT, style.size, "THICKOUTLINE")
+  text:SetTextColor(style.r, style.g, style.b)
+  text:SetText("PULL - stand up!")
+  text:SetAlpha(1)
+  frame.t = 0
+  frame.duration = PULL_DURATION
+  frame.pulse = true
+  frame:SetScript("OnUpdate", onUpdate)
+  frame:Show()
+  flash:Hide()
+  if crit.sound ~= false then style.play() end
+end
+
+function Alert.ShowMage(name)
+  if not mage then return end
+  mage.label:SetText("Ask " .. name .. " for water")
+  mage:Show()
+end
+
+function Alert.HideMage()
+  if mage then mage:Hide() end
 end
 
 -- Stock check line: green when you're good, orange when you should restock. Silent, no flash.

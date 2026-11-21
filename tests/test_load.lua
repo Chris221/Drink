@@ -92,6 +92,8 @@ test("load: glue env implements the full controller env contract", function()
     end
     addon:OnInitialize()
     local realEnv = ns.ctrl().env
+    eq(_G["BINDING_NAME_CLICK DrinkUseButton:LeftButton"], "Use recommended drink")
+    eq(_G.BINDING_HEADER_DRINK, "Drink")
     for k, v in pairs(FakeEnv.New()) do
       if type(v) == "function" and k ~= "advance" then
         truthy(type(realEnv[k]) == "function", "real env missing " .. k)
@@ -103,4 +105,11 @@ test("load: glue env implements the full controller env contract", function()
   end)
   _G.LibStub = saved.LibStub
   if not ok then error(err, 0) end
+end)
+
+test("load: key binding file binds the drink button", function()
+  local f = assert(io.open("Drink/Bindings.xml", "r"))
+  local xml = f:read("a"); f:close()
+  truthy(xml:find('name="CLICK DrinkUseButton:LeftButton"', 1, true), "click binding")
+  truthy(xml:find('header="DRINK"', 1, true), "header")
 end)

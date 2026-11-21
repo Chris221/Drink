@@ -23,6 +23,16 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
 - **Which drink?** Below 80% mana after a fight, a clickable button shows the drink that refills you with the least waste. It picks the smallest usable drink that covers what you're missing. It learns the usual time between pulls in the zone, so a long drink you won't finish counts for less. Mage water is preferred (toggle). It only offers drinks in your bags that you can use. Click it to drink. It disappears after 5s, when you start drinking, or when a pull starts.
 - **Stock check:** entering a dungeon or raid shows `Drinks: 34 (~21 refills) - you're good` or `- STOCK UP` (under 20 drinks), plus a breakdown in your chat window.
 
+## Extras
+
+- **Drink stats, just for you.** Each time you start drinking, your chat shows how long the recommended drink takes to fill you up, counting natural regen: `[Drink] Melon Juice: full in ~18s`, or `2 drinks to fill (~42s)`.
+- **"Drinking" once per break.** A second or third drink before the next fight isn't announced to the group again. The stats line still prints.
+- **"Ready" when you stand up.** Posts `Ready — 85% mana` once per break, at 80% mana or more, after a drink that was announced. Never while you or anyone in the group is in combat.
+- **Ask a mage for water.** When the stock check finds you low, or with no mage water, and a mage is in your group, an "Ask <name> for water" button appears for 10s. Clicking it whispers them (or uses group chat). Nothing is sent unless you click.
+- **Keybind.** Game Menu → Options → Keybindings → Drink → "Use recommended drink". It drinks the last drink the button offered, even after the button has faded.
+- **Low stock mid-run.** One "STOCK UP" warning if you drop below your threshold inside a dungeon or raid.
+- **Pulled while drinking.** "PULL - stand up!" if the group goes into combat while you're sitting.
+
 ## On WoW Forever
 
 Forever hides your current mana from addons all the time (a "secret value"): an addon can hand
@@ -34,6 +44,8 @@ it to the game to display, but can't compare it or put it in a chat message. So 
 - The end-of-fight report, if on, prints to your own chat after every fight.
 - The drink button shows after every fight with the smallest drink that refills your whole bar.
 - The stock check works as normal.
+- "Ready" is sent without the number, and is held back only when the game confirms you're very low.
+- The drink stats line always shows both parts: `[Drink] Melon Juice x1: ~18s to full`. The game works the numbers out; at full mana it reads `x0: ~0s`.
 - `/drink debug` logs whether mana is readable and which game restrictions are active.
 
 ## Commands
@@ -42,7 +54,7 @@ it to the game to display, but can't compare it or put it in a chat message. So 
 |---|---|
 | `/drink` (or `/drinkalert`) | open options |
 | `/drink test fyi` / `heads` / `low` / `critical` | preview an alert tier |
-| `/drink test announce` / `report` | print the chat message locally (never sends) |
+| `/drink test announce` / `report` / `ready` | print the chat message locally (never sends) |
 | `/drink test drink` | show the drink button for your current mana (clicking it really drinks) |
 | `/drink stock` | run the stock check now |
 | `/drink debug` | log mana readability and game restrictions to chat (until `/reload`) |
