@@ -186,3 +186,37 @@ function Drinks.StockSummary(drinks, maxMana, threshold)
     breakdown = table.concat(parts, ", "),
   }
 end
+
+-- Fill maths ------------------------------------------------------------------
+-- How long a drink takes to fill the bar and how many are needed, counting natural regen.
+
+local MAX_DRINKS_SHOWN = 9
+
+local function fillRates(drink, regen)
+  regen = regen or 0
+  return drink.mana / drink.seconds + regen, drink.mana + regen * drink.seconds
+end
+
+-- missing: mana to restore. Returns { seconds, drinks } or nil when nothing is missing.
+function Drinks.FillStats(drink, missing, regen)
+  local rate, perDrink = fillRates(drink, regen)
+  if not missing or missing <= 0 or rate <= 0 or perDrink <= 0 then return nil end
+  return { seconds = math.ceil(missing / rate), drinks = math.ceil(missing / perDrink) }
+end
+
+-- The same maths as curve points over the mana fraction (0 = empty, 1 = full), for clients
+-- where the amount is hidden and only the game can evaluate it:
+--   seconds: linear, { {0, secondsForAFullBar}, {1, 0} }
+--   drinks:  steps,  { {0, N}, {x, N-1}, ..., {x, 1}, {1, 0} }
+function Drinks.FillCurves(drink, maxMana, regen)
+  local rate, perDrink = fillRates(drink, regen)
+  if not maxMana or maxMana <= 0 or rate <= 0 or perDrink <= 0 then return nil end
+  local n = math.min(MAX_DRINKS_SHOWN, math.ceil(maxMana / perDrink))
+  local drinks = { { 0, n } }
+  for k = n - 1, 1, -1 do
+    local x = 1 - k * perDrink / maxMana
+    if x > 0 then drinks[#drinks + 1] = { x, k } end
+  end
+  drinks[#drinks + 1] = { 1, 0 }
+  return { seconds = { { 0, math.ceil(maxMana / rate) }, { 1, 0 } }, drinks = drinks }
+end

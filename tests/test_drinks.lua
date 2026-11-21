@@ -160,3 +160,27 @@ test("drinks: very short gaps (chain pulls) don't count as downtime", function()
   gap(25); gap(30); gap(20)
   eq(t:Estimate(), 25)
 end)
+
+-- Fill maths ---------------------------------------------------------------
+
+test("drinks: fill stats (seconds to full, drinks needed, regen counted)", function()
+  local big = drink("Big", 800, 30)
+  eq(D.FillStats(big, 400, 0), { seconds = 15, drinks = 1 })
+  eq(D.FillStats(big, 1000, nil), { seconds = 38, drinks = 2 })
+  eq(D.FillStats(big, 400, 10), { seconds = 11, drinks = 1 })
+  eq(D.FillStats(big, 1000, 10), { seconds = 28, drinks = 1 }, "regen makes one drink enough (1100)")
+  eq(D.FillStats(big, 0, 0), nil)
+end)
+
+test("drinks: fill curves over the mana fraction for the game to evaluate", function()
+  local c = D.FillCurves(drink("Mid", 450, 30), 1000, 0)
+  eq(c.seconds, { { 0, 67 }, { 1, 0 } })
+  eq(#c.drinks, 4)
+  local want = { { 0, 3 }, { 0.1, 2 }, { 0.55, 1 }, { 1, 0 } }
+  for i, pt in ipairs(want) do
+    truthy(math.abs(c.drinks[i][1] - pt[1]) < 1e-9, "x of point " .. i)
+    eq(c.drinks[i][2], pt[2])
+  end
+  local tiny = D.FillCurves(drink("Tiny", 10, 30), 1000, 0)
+  eq(tiny.drinks[1], { 0, 9 }, "drink count capped at 9")
+end)
