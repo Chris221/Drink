@@ -43,6 +43,14 @@ local function buildEnv()
     now = function() return GetTime() end,
     after = function(delay, fn) C_Timer.After(delay, fn) end,
     getManaPct = Compat.GetManaPercent,
+    manaHidden = function() return Compat.ManaHidden and Compat.ManaHidden() or false end,
+    lowManaConfirmed = function() return Compat.LowManaConfirmed and Compat.LowManaConfirmed() or false end,
+    showAlertHidden = function(sound)
+      if not (ns.Alert and ns.Alert.ShowHidden) then return end
+      local p = Drink.db.profile
+      ns.Alert.ShowHidden(Compat.HiddenManaView(ns.Logic.TierBands(p.cutoffs, p.tiers, p.alert.skipAtFull)), sound)
+    end,
+    printHidden = function(template) pcall(print, Compat.HiddenMessage(template)) end,
     hasMana = Compat.HasMana,
     inCombatNow = function() return InCombatLockdown() and true or false end,
     isDead = function() return UnitIsDeadOrGhost("player") and true or false end,

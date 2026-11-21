@@ -206,3 +206,16 @@ test("stock: skipped while dead or a ghost (corpse run)", function()
   ctrl:OnEnteringWorld(false, "party"); env:advance(3)
   eq(#env.stocks, 0)
 end)
+
+-- _forever_: missing mana is unknown, so the button offers a full refill after every fight.
+test("hidden: button after every fight with the smallest drink that refills the whole bar", function()
+  local ctrl, env = setup({ hiddenMana = true, maxMana = 400, drinks = THREE })
+  fight(ctrl, env, 10)
+  eq(env.buttonShown and env.buttonShown.name, "Mid")
+end)
+
+test("hidden: nothing covers a full bar -> biggest drink", function()
+  local ctrl, env = setup({ hiddenMana = true, maxMana = 5000, drinks = THREE })
+  fight(ctrl, env, 10)
+  eq(env.buttonShown and env.buttonShown.name, "Big")
+end)

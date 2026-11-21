@@ -23,6 +23,19 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
 - **Which drink?** Below 80% mana after a fight, a clickable button shows the drink that refills you with the least waste. It picks the smallest usable drink that covers what you're missing. It learns the usual time between pulls in the zone, so a long drink you won't finish counts for less. Mage water is preferred (toggle). It only offers drinks in your bags that you can use. Click it to drink. It disappears after 5s, when you start drinking, or when a pull starts.
 - **Stock check:** entering a dungeon or raid shows `Drinks: 34 (~21 refills) - you're good` or `- STOCK UP` (under 20 drinks), plus a breakdown in your chat window.
 
+## On WoW Forever
+
+Forever hides your current mana from addons all the time (a "secret value"): an addon can hand
+it to the game to display, but can't compare it or put it in a chat message. So there:
+
+- The alert still shows your real % in the right tier style. The game picks the tier; every tier stays up for 4s.
+- Alert sounds play only when the game says you can't afford your most expensive spell (roughly the critical range).
+- Your party sees "Drinking" (no number). Your own chat shows the full "Drinking — 57% mana".
+- The end-of-fight report, if on, prints to your own chat after every fight.
+- The drink button shows after every fight with the smallest drink that refills your whole bar.
+- The stock check works as normal.
+- `/drink debug` logs whether mana is readable and which game restrictions are active.
+
 ## Commands
 
 | Command | |
@@ -32,6 +45,7 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
 | `/drink test announce` / `report` | print the chat message locally (never sends) |
 | `/drink test drink` | show the drink button for your current mana (clicking it really drinks) |
 | `/drink stock` | run the stock check now |
+| `/drink debug` | log mana readability and game restrictions to chat (until `/reload`) |
 | `/drink unlock` / `/drink lock` | move the alert and the drink button. Drag the button's corner to resize it |
 
 The options are also in the game's AddOns settings under **Drink**. Every threshold, tier, sound/flash, message template and drink-buff name is configurable, with per-character profiles.

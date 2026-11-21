@@ -242,3 +242,100 @@ function Compat.ManaDebugLine()
   end
   return mana .. " lockdown=" .. lockdown .. " restrictions: " .. (#parts > 0 and table.concat(parts, " ") or "n/a")
 end
+
+-- Hidden mana (_forever_) -----------------------------------------------------------
+-- Current mana is a secret value there: no comparing or math. The game can still evaluate
+-- curves on it (UnitPowerPercent) and widgets can display the result. Same approach as
+-- HealerTrafficLight / HealthBarTextForever.
+
+local function curvesSupported()
+  return C_CurveUtil and C_CurveUtil.CreateCurve and UnitPowerPercent
+    and Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step and true or false
+end
+
+function Compat.ManaHidden()
+  if not curvesSupported() then return false end
+  return isSecret(UnitPower("player", manaType()))
+end
+
+local curveCache, percentCurve = {}, nil
+
+-- Step curve over 0..1 of max mana: 1 inside [from, to), 0 elsewhere (to = nil: up to 100%).
+local function bandCurve(from, to)
+  local key = tostring(from) .. ":" .. tostring(to)
+  if curveCache[key] then return curveCache[key] end
+  local c = C_CurveUtil.CreateCurve()
+  c:SetType(Enum.LuaCurveType.Step)
+  if from > 0 then c:AddPoint(0, 0) end
+  c:AddPoint(from, 1)
+  if to then c:AddPoint(to, 0) end
+  curveCache[key] = c
+  return c
+end
+
+local function pctCurve()
+  if CurveConstants and CurveConstants.ScaleTo100 then return CurveConstants.ScaleTo100 end
+  if not percentCurve then
+    percentCurve = C_CurveUtil.CreateCurve()
+    percentCurve:SetType(Enum.LuaCurveType.Step)
+    for i = 0, 100 do percentCurve:AddPoint(i / 100, i) end
+  end
+  return percentCurve
+end
+
+local function gamePercent(curve)
+  local ok, v = pcall(UnitPowerPercent, "player", manaType(), false, curve)
+  if ok then return v end
+  return nil
+end
+
+-- { percent = <secret 0-100>, alpha = { [tier] = <secret 0 or 1> } } for the alert to display.
+function Compat.HiddenManaView(bands)
+  local view = { percent = gamePercent(pctCurve()), alpha = {} }
+  for _, b in ipairs(bands) do
+    view.alpha[b.tier] = gamePercent(bandCurve(b.from, b.to))
+  end
+  return view
+end
+
+-- "[Drink] <template with the real %>", for printing to my own chat (it can't be sent).
+function Compat.HiddenMessage(template)
+  local ok, msg = pcall(string.format, "[Drink] " .. Logic.TemplateFormat(template), gamePercent(pctCurve()))
+  if ok then return msg end
+  return "[Drink] " .. Logic.WithoutNumber(template, "Drinking")
+end
+
+-- True when the game says I can't afford my most expensive active mana spell: a real,
+-- comparable answer about low mana even while the amount itself is hidden.
+function Compat.LowManaConfirmed()
+  local book, spell = C_SpellBook, C_Spell
+  local types = Enum and Enum.SpellBookItemType
+  local bank = Enum and Enum.SpellBookSpellBank
+  if not (book and book.GetNumSpellBookSkillLines and spell and spell.GetSpellPowerCost
+          and spell.IsSpellUsable and types and bank) then return false end
+  local best, bestCost
+  for i = 1, book.GetNumSpellBookSkillLines() do
+    local line = book.GetSpellBookSkillLineInfo(i)
+    if line and not line.offSpecID then
+      for slot = line.itemIndexOffset + 1, line.itemIndexOffset + line.numSpellBookItems do
+        local item = book.GetSpellBookItemInfo(slot, bank.Player)
+        if item and item.itemType == types.Spell and not item.isPassive and item.spellID then
+          local ok, costs = pcall(spell.GetSpellPowerCost, item.spellID)
+          if ok and type(costs) == "table" and not isSecret(costs) then
+            for _, c in ipairs(costs) do
+              local cost = c.cost
+              if c.type == manaType() and type(cost) == "number" and not isSecret(cost)
+                  and cost > 0 and (not bestCost or cost > bestCost) then
+                best, bestCost = item.spellID, cost
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  if not best then return false end
+  local ok, _, insufficient = pcall(spell.IsSpellUsable, best)
+  if not ok or isSecret(insufficient) then return false end
+  return insufficient == true
+end

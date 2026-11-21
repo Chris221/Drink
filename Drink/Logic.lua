@@ -55,3 +55,47 @@ function Logic.FormatMessage(template, pct)
   local escaped = string.gsub(template, "|", "||")
   return (string.gsub(escaped, "%%m", tostring(pct)))
 end
+
+-- Hidden mana (_forever_) -------------------------------------------------------
+-- There, current mana is a "secret value": addons can't compare it, only hand it to the game.
+-- These build what the game needs to do the comparing for us.
+
+local TIER_ORDER = { "critical", "low", "heads", "fyi" }
+
+-- Each enabled tier's mana range as fractions of max: { tier, from, to } (to = nil: up to 100%).
+function Logic.TierBands(cutoffs, tiers, skipAtFull)
+  local edges = {
+    critical = { 0, cutoffs.low / 100 },
+    low = { cutoffs.low / 100, cutoffs.heads / 100 },
+    heads = { cutoffs.heads / 100, cutoffs.fyi / 100 },
+    fyi = { cutoffs.fyi / 100, skipAtFull and 1 or nil },
+  }
+  local out = {}
+  for _, tier in ipairs(TIER_ORDER) do
+    local t = tiers[tier]
+    if t and t.enabled then
+      out[#out + 1] = { tier = tier, from = edges[tier][1], to = edges[tier][2] }
+    end
+  end
+  return out
+end
+
+-- A message template as a string.format pattern with %d where %m was.
+function Logic.TemplateFormat(template)
+  local escaped = string.gsub(template, "|", "||")
+  return (string.gsub(escaped, "%%(m?)", function(m) return m == "m" and "%d" or "%%" end))
+end
+
+-- The template with the number part cut off ("Drinking — %m% mana" -> "Drinking").
+function Logic.WithoutNumber(template, fallback)
+  local head = string.match(template, "^(.-)%%m") or template
+  local before
+  repeat
+    before = head
+    head = string.gsub(head, "%s+$", "")
+    head = string.gsub(head, "—$", "")
+    head = string.gsub(head, "[%-:,%(]$", "")
+  until head == before
+  if head == "" then head = fallback end
+  return (string.gsub(head, "|", "||"))
+end

@@ -9,8 +9,8 @@ ns.Controller = Controller
 
 local SAMPLE_PCT = { fyi = 90, heads = 65, low = 35, critical = 12 }
 local POLL_INTERVAL = 0.5
--- _forever_ keeps UnitPower secret in combat, and still on the first frame after combat ends.
--- Re-read it a few times before giving up and showing "mana unknown".
+-- Mana unreadable and the game can't draw it either (no curve API): re-read it a few times
+-- before giving up and showing "mana unknown". (_forever_'s always-secret mana skips this.)
 local MANA_POLL, MANA_WAIT = 0.25, 2
 local STOCK_DELAY = 3     -- seconds after a loading screen, so bag item data has settled
 
@@ -85,7 +85,7 @@ function Controller:EvaluateWhenReadable(duration, endedAt, gen)
   local started = env.now()
   local function try()
     if gen ~= self.gen then return end -- a new pull started meanwhile
-    if env.getManaPct() or not env.hasMana() or env.now() - started >= MANA_WAIT then
+    if env.getManaPct() or env.manaHidden() or not env.hasMana() or env.now() - started >= MANA_WAIT then
       self:Evaluate(duration, endedAt)
     else
       env.after(MANA_POLL, try)
@@ -100,27 +100,38 @@ function Controller:Evaluate(duration, endedAt)
   if env.isDead() or not env.hasMana() then return end
   if duration < p.alert.minFightSeconds then return end
   local pct = env.getManaPct()
+  -- _forever_: mana is a secret value. The game draws it, but the addon can't compare it,
+  -- so tiers are picked by the game (curves) and thresholds can't apply.
+  local hidden = pct == nil and env.manaHidden()
 
   local a = p.alert
   if a.enabled
     and not self.drinking -- already drinking (e.g. sat down while waiting for the group)
     and not (a.skipAtFull and pct == 100)
     and not (a.onlyInGroup and not inGroup(env.groupState())) then
-    local tier = Logic.GetTier(pct, p.cutoffs)
-    local t = p.tiers[tier]
-    if tier == "unknown" or (t and t.enabled) then
-      env.showAlert(tier, pct)
+    if hidden then
+      env.showAlertHidden(env.lowManaConfirmed())
+    else
+      local tier = Logic.GetTier(pct, p.cutoffs)
+      local t = p.tiers[tier]
+      if tier == "unknown" or (t and t.enabled) then
+        env.showAlert(tier, pct)
+      end
     end
   end
 
   local r = p.report
   local announcedSinceEnd = self.announcedAt and endedAt and self.announcedAt >= endedAt
-  if r.enabled and pct and pct < r.below and not announcedSinceEnd then
-    self:Post(Logic.FormatMessage(r.template, pct), r.channel, r.soloLocal)
+  if r.enabled and not announcedSinceEnd then
+    if hidden then
+      env.printHidden(r.template) -- the number can't be sent to chat, only shown to me
+    elseif pct and pct < r.below then
+      self:Post(Logic.FormatMessage(r.template, pct), r.channel, r.soloLocal)
+    end
   end
 
   local rc = p.recommend
-  if rc.enabled and pct and not self.drinking and (rc.below >= 100 or pct < rc.below) then
+  if rc.enabled and not self.drinking and (hidden or (pct and (rc.below >= 100 or pct < rc.below))) then
     self:ShowRecommendation()
   end
 end
@@ -130,8 +141,15 @@ end
 function Controller:Recommend()
   local env, rc = self.env, self.p.recommend
   local pct, max = env.getManaPct(), env.getMaxMana()
-  if not pct or not max then return nil end
-  local deficit = math.floor(max * (100 - pct) / 100)
+  if not max then return nil end
+  local deficit
+  if pct then
+    deficit = math.floor(max * (100 - pct) / 100)
+  elseif env.manaHidden() then
+    deficit = max -- missing mana unknown: offer a full refill
+  else
+    return nil
+  end
   return ns.Drinks.Pick(env.getUsableDrinks(), deficit, {
     preferConjured = rc.preferConjured,
     downtime = rc.useDowntime and self.downtime:Estimate() or nil,
@@ -197,8 +215,10 @@ function Controller:OnAuraChanged()
     env.hideDrinkButton() -- drank from the action bar (or the button): the button's job is done
     local an = self.p.announce
     local pct = env.getManaPct()
+    if an.enabled and pct == nil and env.manaHidden() then
+      if self:PostHidden(an.template, an.channel, an.soloLocal) then self.announcedAt = env.now() end
     -- Never at 100%: stat food / feasts named "Food & Drink" would otherwise spam the raid.
-    if an.enabled and pct and pct < 100 and (an.below >= 100 or pct < an.below) then
+    elseif an.enabled and pct and pct < 100 and (an.below >= 100 or pct < an.below) then
       if self:Post(Logic.FormatMessage(an.template, pct), an.channel, an.soloLocal) then
         self.announcedAt = env.now()
       end
@@ -225,6 +245,29 @@ function Controller:Post(msg, mode, soloLocal)
   else
     env.sendChat(msg, channel)
   end
+  return true
+end
+
+-- Hidden mana: the group gets the message without the number (secret values can't be sent);
+-- I get the full line with the real %, drawn by the game.
+function Controller:PostHidden(template, mode, soloLocal)
+  local env = self.env
+  local state = env.groupState() or {}
+  local channel = Logic.PickChannel(mode, state)
+  local solo = not (state.instance or state.raid or state.party)
+  if not channel and not (solo and soloLocal) then return false end
+  local now = env.now()
+  if self.lastPost and now - self.lastPost < self.p.dedupSeconds then return false end
+  self.lastPost = now
+  if channel then
+    local msg = Logic.WithoutNumber(template, "Drinking")
+    if env.chatLocked() then
+      env.print("[Drink] (chat locked) " .. msg)
+    else
+      env.sendChat(msg, channel)
+    end
+  end
+  env.printHidden(template)
   return true
 end
 

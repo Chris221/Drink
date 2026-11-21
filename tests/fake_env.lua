@@ -16,7 +16,13 @@ function FakeEnv.New(o)
     env.seq = env.seq + 1
     env.queue[#env.queue + 1] = { at = env.t + delay, seq = env.seq, fn = fn }
   end
-  function env.getManaPct() if env.unknownMana then return nil end return env.mana end
+  function env.getManaPct() if env.unknownMana or env.hiddenMana then return nil end return env.mana end
+  -- _forever_: current mana is a secret value the game can draw but the addon can't read.
+  env.hiddenAlerts, env.hiddenPrints = {}, {}
+  function env.manaHidden() return env.hiddenMana == true end
+  function env.lowManaConfirmed() return env.lowConfirmed == true end
+  function env.showAlertHidden(sound) env.hiddenAlerts[#env.hiddenAlerts + 1] = { sound = sound } end
+  function env.printHidden(template) env.hiddenPrints[#env.hiddenPrints + 1] = template end
   function env.hasMana() return not env.noMana end
   function env.inCombatNow() return env.inCombat == true end
   function env.isDead() return env.dead end

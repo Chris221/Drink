@@ -4,7 +4,7 @@ local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAur
   "C_Container", "GetContainerNumSlots", "GetContainerItemID", "GetContainerItemInfo", "C_Item", "GetItemInfo",
   "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
   "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3",
-  "C_RestrictedActions", "InCombatLockdown" }
+  "C_RestrictedActions", "InCombatLockdown", "C_CurveUtil", "UnitPowerPercent", "CurveConstants", "C_SpellBook", "C_Spell" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
 local function with_globals(g, fn)
@@ -181,4 +181,78 @@ test("compat: debug line with readable mana and no restriction API (Classic)", f
   with_globals({ UnitPower = up, UnitPowerMax = upm, InCombatLockdown = function() return true end }, function(C)
     eq(C.ManaDebugLine(), "mana=615/1445 (43%) lockdown=yes restrictions: n/a")
   end)
+end)
+
+-- _forever_ hidden mana -----------------------------------------------------------
+
+-- Fake curve API: curves record their points; UnitPowerPercent returns a tagged "secret".
+local function curveWorld(extra)
+  local g = {
+    Enum = { PowerType = { Mana = 0 }, LuaCurveType = { Step = 1 } },
+    UnitPower = function() return SECRET end, UnitPowerMax = function() return 1445 end,
+    issecretvalue = function(v) return v == SECRET or (type(v) == "table" and v.secret == true) end,
+    C_CurveUtil = { CreateCurve = function()
+      local c = { points = {} }
+      function c:SetType(t) self.type = t end
+      function c:AddPoint(x, y) self.points[#self.points + 1] = { x, y } end
+      return c
+    end },
+    UnitPowerPercent = function(unit, ptype, predicted, curve)
+      assert(unit == "player" and ptype == 0 and predicted == false)
+      return { secret = true, curve = curve }
+    end,
+  }
+  for k, v in pairs(extra or {}) do g[k] = v end
+  return g
+end
+
+test("compat: hidden mana detected only when the game can draw it", function()
+  with_globals(curveWorld(), function(C) eq(C.ManaHidden(), true) end)
+  with_globals(curveWorld({ UnitPowerPercent = false }), function(C) eq(C.ManaHidden(), false, "no curve API") end)
+  local up, upm = power(615, 1445, 0)
+  with_globals(curveWorld({ UnitPower = up, UnitPowerMax = upm }), function(C) eq(C.ManaHidden(), false, "readable") end)
+end)
+
+test("compat: hidden view gives the game a band curve per tier and a 0-100 percent", function()
+  local scale = { name = "ScaleTo100" }
+  with_globals(curveWorld({ CurveConstants = { ScaleTo100 = scale } }), function(C)
+    local view = C.HiddenManaView({ { tier = "critical", from = 0, to = 0.2 }, { tier = "fyi", from = 0.8 } })
+    eq(view.percent.curve, scale)
+    eq(view.alpha.critical.curve.points, { { 0, 1 }, { 0.2, 0 } })
+    eq(view.alpha.fyi.curve.points, { { 0, 0 }, { 0.8, 1 } })
+    eq(view.alpha.critical.curve.type, 1)
+    eq(view.alpha.heads, nil, "disabled tier gets nothing")
+  end)
+end)
+
+test("compat: hidden message formats the template with the game's percent", function()
+  with_globals(curveWorld({ UnitPowerPercent = function() return 57 end, CurveConstants = { ScaleTo100 = {} } }), function(C)
+    eq(C.HiddenMessage("Drinking — %m% mana"), "[Drink] Drinking — 57% mana")
+  end)
+end)
+
+local function spellWorld(insufficient)
+  return curveWorld({
+    Enum = { PowerType = { Mana = 0 }, LuaCurveType = { Step = 1 }, SpellBookSpellBank = { Player = 0 },
+             SpellBookItemType = { Spell = 1 } },
+    C_SpellBook = {
+      GetNumSpellBookSkillLines = function() return 1 end,
+      GetSpellBookSkillLineInfo = function() return { itemIndexOffset = 0, numSpellBookItems = 3 } end,
+      GetSpellBookItemInfo = function(slot)
+        return ({ { spellID = 10, itemType = 1 }, { spellID = 20, itemType = 1 }, { spellID = 30, itemType = 1, isPassive = true } })[slot]
+      end,
+    },
+    C_Spell = {
+      GetSpellPowerCost = function(id)
+        return ({ [10] = { { type = 0, cost = 125 } }, [20] = { { type = 0, cost = 255 } }, [30] = { { type = 0, cost = 999 } } })[id]
+      end,
+      IsSpellUsable = function(id) assert(id == 20, "asks about the costliest active spell"); return not insufficient, insufficient end,
+    },
+  })
+end
+
+test("compat: low mana confirmed when the costliest spell is unaffordable", function()
+  with_globals(spellWorld(true), function(C) eq(C.LowManaConfirmed(), true) end)
+  with_globals(spellWorld(false), function(C) eq(C.LowManaConfirmed(), false) end)
+  with_globals(curveWorld(), function(C) eq(C.LowManaConfirmed(), false, "no spellbook API") end)
 end)

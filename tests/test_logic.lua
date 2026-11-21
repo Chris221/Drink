@@ -55,3 +55,34 @@ test("logic: FormatMessage escapes | so chat/print never sees a broken escape co
   eq(L.FormatMessage("Drinking | %m%", 40), "Drinking || 40%")
   eq(L.FormatMessage("a||b", 1), "a||||b")
 end)
+
+-- _forever_ hidden mana ---------------------------------------------------------
+
+local ALL_ON = { fyi = { enabled = true }, heads = { enabled = true }, low = { enabled = true }, critical = { enabled = true } }
+
+test("logic: tier bands as mana fractions for the game's curves", function()
+  eq(L.TierBands(CUT, ALL_ON, true), {
+    { tier = "critical", from = 0, to = 0.2 },
+    { tier = "low", from = 0.2, to = 0.5 },
+    { tier = "heads", from = 0.5, to = 0.8 },
+    { tier = "fyi", from = 0.8, to = 1 },        -- skip at full: nothing at exactly 100%
+  })
+  local some = deepcopy(ALL_ON); some.heads.enabled = false
+  local bands = L.TierBands(CUT, some, false)
+  eq(#bands, 3)
+  eq(bands[3], { tier = "fyi", from = 0.8 }, "no upper bound when 100% still alerts")
+end)
+
+test("logic: template to format string for a hidden %", function()
+  eq(L.TemplateFormat("Drinking — %m% mana"), "Drinking — %d%% mana")
+  eq(L.TemplateFormat("100% sure |cff %m"), "100%% sure ||cff %d")
+  eq(L.TemplateFormat("no number"), "no number")
+end)
+
+test("logic: message without the number for the group", function()
+  eq(L.WithoutNumber("Drinking — %m% mana", "Drinking"), "Drinking")
+  eq(L.WithoutNumber("Drinking: %m%", "Drinking"), "Drinking")
+  eq(L.WithoutNumber("Drinking (%m%)", "Drinking"), "Drinking")
+  eq(L.WithoutNumber("%m% mana, drinking", "Drinking"), "Drinking")
+  eq(L.WithoutNumber("Sitting | drinking", "Drinking"), "Sitting || drinking")
+end)
