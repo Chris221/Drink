@@ -107,6 +107,39 @@ test("load: glue env implements the full controller env contract", function()
   if not ok then error(err, 0) end
 end)
 
+test("load: glue passes Edit Mode opening and closing on to the alert", function()
+  local addon
+  local saved = { LibStub = _G.LibStub, EditModeManagerFrame = _G.EditModeManagerFrame, EventRegistry = _G.EventRegistry }
+  local callbacks = {}
+  _G.EditModeManagerFrame = {}
+  _G.EventRegistry = { RegisterCallback = function(_, event, fn) callbacks[event] = fn end }
+  _G.LibStub = function(name)
+    if name == "AceAddon-3.0" then
+      return { NewAddon = function(_, n) addon = { name = n, RegisterEvent = function() end }; return addon end }
+    elseif name == "AceDB-3.0" then
+      return { New = function(_, _, defaults)
+        return { profile = deepcopy(defaults.profile), RegisterCallback = function() end }
+      end }
+    end
+    error("unexpected lib " .. tostring(name))
+  end
+  local ok, err = pcall(function()
+    local ns = {}
+    for _, f in ipairs({ "Logic", "Drinks", "Defaults", "Compat", "Controller", "Drink" }) do
+      load_addon(ns, "Drink/" .. f .. ".lua")
+    end
+    addon:OnInitialize()
+    local got = {}
+    ns.Alert = { EditMode = function(open) got[#got + 1] = open end }
+    addon:OnEnable()
+    truthy(callbacks["EditMode.Enter"] and callbacks["EditMode.Exit"], "watching Edit Mode")
+    callbacks["EditMode.Enter"](); callbacks["EditMode.Exit"]()
+    eq(got, { true, false })
+  end)
+  for k in pairs({ LibStub = true, EditModeManagerFrame = true, EventRegistry = true }) do _G[k] = saved[k] end
+  if not ok then error(err, 0) end
+end)
+
 test("load: key binding file binds the drink button", function()
   local f = assert(io.open("Drink/Bindings.xml", "r"))
   local xml = f:read("a"); f:close()

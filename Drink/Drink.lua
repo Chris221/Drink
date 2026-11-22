@@ -122,6 +122,12 @@ function Drink:OnEnable()
   self:RegisterEvent("PLAYER_ENTERING_WORLD")
   self:RegisterEvent("ZONE_CHANGED_NEW_AREA")
   if C_RestrictedActions then self:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED") end
+  -- The game's Edit Mode also unlocks the alert and the drink button while it's open.
+  if Compat.WatchEditMode then
+    Compat.WatchEditMode(function(open)
+      if ns.Alert and ns.Alert.EditMode then ns.Alert.EditMode(open) end
+    end)
+  end
 end
 
 function Drink:ADDON_RESTRICTION_STATE_CHANGED(_, rtype, state)

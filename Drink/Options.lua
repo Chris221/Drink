@@ -80,7 +80,7 @@ function ns.BuildOptions(getProfile)
   -- One lock for the alert and the drink button; shown on both tabs.
   local function lockOption()
     return opt("toggle", { "alert", "locked" }, "Lock alert and drink button",
-      { desc = "Untick to drag the alert and the drink button (drag the button's corner to resize it)." },
+      { desc = "Untick to drag the alert and the drink button (drag the button's corner to resize it). The game's Edit Mode also unlocks them while it's open." },
       function(v) if ns.Alert and ns.Alert.SetLocked then ns.Alert.SetLocked(v) end end)
   end
 

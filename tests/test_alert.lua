@@ -248,3 +248,51 @@ test("alert: pull warning and the ask-a-mage button", function()
   for _, n in ipairs(G) do _G[n] = saved[n] end
   if not ok then error(err, 0) end
 end)
+
+test("alert: the game's Edit Mode unlocks while it's open and locks again when it closes", function()
+  local saved = {}
+  for _, n in ipairs(G) do saved[n] = _G[n] end
+  local log, frames = {}, {}
+  _G.CreateFrame = function(_, name) local f = stubObject(log); if name then frames[name] = f end; return f end
+  _G.UIParent = stubObject(log)
+  _G.STANDARD_TEXT_FONT = "font"
+  _G.SOUNDKIT = { RAID_WARNING = 8959 }
+  _G.PlaySound = function() end
+  local ok, err = pcall(function()
+    local ns = {}
+    load_addon(ns, "Drink/Defaults.lua")
+    load_addon(ns, "Drink/Alert.lua")
+    local profile = deepcopy(ns.defaults.profile)
+    local A = ns.Alert
+    local buttonLocks = {}
+    ns.DrinkButton = { SetLocked = function(v) buttonLocks[#buttonLocks + 1] = v end }
+    A.Init(profile)
+    buttonLocks = {} -- Init applies the saved lock state; only what Edit Mode does matters here
+    local f = frames.DrinkAlertFrame
+
+    A.EditMode(true)
+    eq(profile.alert.locked, false)
+    eq(f.shown, true, "drag handle up")
+    truthy(log[#log]:find("Drink alert"), "handle says what it is: " .. tostring(log[#log]))
+    eq(buttonLocks, { false }, "the drink button unlocks with it")
+    A.Show("low", 35); A.Hide()
+    truthy(log[#log]:find("Drink alert"), "handle text comes back after an alert")
+    A.EditMode(false)
+    eq(profile.alert.locked, true)
+    eq(f.shown, false)
+    eq(buttonLocks[#buttonLocks], true, "the drink button locks with it")
+
+    -- Unlocked by hand beforehand: Edit Mode leaves it that way when it closes.
+    A.SetLocked(false)
+    truthy(log[#log]:find("/drink lock"), "the usual handle text outside Edit Mode")
+    A.EditMode(true); A.EditMode(false)
+    eq(profile.alert.locked, false, "my own unlock survives Edit Mode")
+
+    -- Closing without ever opening does nothing.
+    A.SetLocked(true)
+    A.EditMode(false)
+    eq(profile.alert.locked, true)
+  end)
+  for _, n in ipairs(G) do _G[n] = saved[n] end
+  if not ok then error(err, 0) end
+end)

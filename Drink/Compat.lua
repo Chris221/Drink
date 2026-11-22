@@ -381,6 +381,15 @@ function Compat.ManaIsActive()
   return powerType == manaType()
 end
 
+-- The game's Edit Mode (its HUD layout editor), on clients that have one: onChange(true) when
+-- it opens, onChange(false) when it closes. Returns whether there was anything to watch.
+function Compat.WatchEditMode(onChange)
+  if not (EditModeManagerFrame and EventRegistry and EventRegistry.RegisterCallback) then return false end
+  EventRegistry:RegisterCallback("EditMode.Enter", function() onChange(true) end)
+  EventRegistry:RegisterCallback("EditMode.Exit", function() onChange(false) end)
+  return true
+end
+
 -- Extras ------------------------------------------------------------------------
 
 -- Out-of-combat mana regen per second, or nil when the game doesn't give a usable number.

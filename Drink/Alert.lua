@@ -23,6 +23,7 @@ local FADE = 0.6
 
 local profile, frame, text, flash, layer, critHolder, mage
 local PULL_DURATION = 3
+local editUnlocked = false -- unlocked by the game's Edit Mode rather than by hand
 local HIDDEN_DURATION = 4 -- hidden mana: the addon can't tell which tier the game showed
 local HIDDEN_TIERS = { "fyi", "heads", "low", "critical" }
 
@@ -288,7 +289,22 @@ function Alert.SetLocked(locked)
     text:SetFont(STANDARD_TEXT_FONT, 24, "THICKOUTLINE")
     text:SetTextColor(1, 1, 1)
     text:SetAlpha(1)
-    text:SetText("Drag me  -  /drink lock when done")
+    text:SetText(editUnlocked and "Drink alert  -  drag me" or "Drag me  -  /drink lock when done")
     frame:Show()
+  end
+end
+
+-- The game's Edit Mode opened or closed. Unlock while it's open; lock again afterwards only
+-- if Edit Mode did the unlocking (an unlock made by hand stays as it was).
+function Alert.EditMode(open)
+  if not profile then return end
+  if open then
+    if profile.alert.locked then
+      editUnlocked = true
+      Alert.SetLocked(false)
+    end
+  elseif editUnlocked then
+    editUnlocked = false
+    Alert.SetLocked(true)
   end
 end

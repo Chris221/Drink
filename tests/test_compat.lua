@@ -5,7 +5,7 @@ local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAur
   "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
   "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3",
   "C_RestrictedActions", "InCombatLockdown", "C_CurveUtil", "UnitPowerPercent", "CurveConstants", "C_SpellBook", "C_Spell",
-  "GetManaRegen", "UnitClass", "UnitName", "UnitIsUnit", "UnitPowerType" }
+  "GetManaRegen", "UnitClass", "UnitName", "UnitIsUnit", "UnitPowerType", "EditModeManagerFrame", "EventRegistry" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
 local function with_globals(g, fn)
@@ -411,4 +411,15 @@ test("compat: mana is my active resource unless I'm fighting on another one", fu
   with_globals({}, function(C) eq(C.ManaIsActive(), true, "no API: assume mana") end)
   with_globals({ UnitPowerType = function() return SECRET end, issecretvalue = function(v) return v == SECRET end },
     function(C) eq(C.ManaIsActive(), true, "hidden: assume mana, never compared") end)
+end)
+
+test("compat: watches the game's Edit Mode where the client has one", function()
+  with_globals({}, function(C) eq(C.WatchEditMode(function() end), false, "no Edit Mode here") end)
+  local callbacks, seen = {}, {}
+  local registry = { RegisterCallback = function(self, event, fn) callbacks[event] = fn end }
+  with_globals({ EditModeManagerFrame = {}, EventRegistry = registry }, function(C)
+    eq(C.WatchEditMode(function(open) seen[#seen + 1] = open end), true)
+  end)
+  callbacks["EditMode.Enter"]("owner"); callbacks["EditMode.Exit"]("owner")
+  eq(seen, { true, false })
 end)

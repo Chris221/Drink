@@ -33,6 +33,7 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
 - **"Drinking" once per break.** A second or third drink before the next fight isn't announced to the group again. The stats line still prints.
 - **"Ready" when you stand up.** Posts `Ready — 85% mana` once per break, at 80% mana or more, after a drink that was announced. Never while you or anyone in the group is in combat.
 - **Ask a mage for water.** When the stock check finds you low, or with no mage water, and a mage is in your group, an "Ask <name> for water" button appears for 10s. Clicking it whispers them (or uses group chat). Nothing is sent unless you click. Never offered when you're a mage yourself.
+- **Edit Mode.** Opening the game's Edit Mode unlocks the alert and the drink button so you can place them with the rest of your UI; closing it locks them again. `/drink unlock` and the lock checkbox still work on their own.
 - **Keybind.** Game Menu → Options → Keybindings → Drink → "Use recommended drink". It drinks the last drink the button offered, even after the button has faded.
 - **Low stock mid-run.** One "STOCK UP" warning if you drop below your threshold inside a dungeon or raid.
 - **Pulled while drinking.** "PULL - stand up!" if the group goes into combat while you're sitting.
