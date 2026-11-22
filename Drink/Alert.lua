@@ -226,7 +226,7 @@ end
 -- Hidden mana (_forever_): view = { percent, hasPercent, alpha = { [tier] = v }, has = { [tier] = true } }.
 -- percent and alpha values are secret: never test or compare them, only pass them to widgets
 -- (decide from the plain has/hasPercent flags).
--- sound: the controller confirmed low mana (can't afford the costliest spell).
+-- sound: the controller confirmed low mana (can't afford a spell costing about the Critical cutoff).
 function Alert.ShowHidden(view, sound)
   if not frame then return end
   frame.bg:Hide()

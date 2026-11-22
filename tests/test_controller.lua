@@ -403,7 +403,7 @@ test("hidden: alert is drawn by the game straight away, no 'unknown', no wait", 
   eq(#env.alerts, 0)
 end)
 
-test("hidden: sound only when you can't afford your costliest spell", function()
+test("hidden: sound only when the game confirms low mana", function()
   local ctrl, env = setup({ hiddenMana = true, lowConfirmed = true })
   fight(ctrl, env, 10)
   eq(env.hiddenAlerts, { { sound = true } })

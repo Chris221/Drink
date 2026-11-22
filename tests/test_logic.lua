@@ -73,6 +73,13 @@ test("logic: tier bands as mana fractions for the game's curves", function()
   eq(bands[3], { tier = "fyi", from = 0.8 }, "no upper bound when 100% still alerts")
 end)
 
+test("logic: low-only bands keep just Low and Critical", function()
+  eq(L.TierBands(CUT, ALL_ON, true, true), {
+    { tier = "critical", from = 0, to = 0.2 },
+    { tier = "low", from = 0.2, to = 0.5 },
+  })
+end)
+
 test("logic: template to format string for a hidden %", function()
   eq(L.TemplateFormat("Drinking — %m% mana"), "Drinking — %d%% mana")
   eq(L.TemplateFormat("100% sure |cff %m"), "100%% sure ||cff %d")

@@ -347,3 +347,62 @@ test("midrun: the delayed stock line doesn't replace alerts while I'm drinking",
   env:advance(5)
   eq(#env.stocks, 1, "chat line only")
 end)
+
+-- Mana isn't my active resource (bear or cat form, shadow, elemental...) -------------
+
+test("off-resource: quiet above Low; alert, button and report as usual at Low or Critical", function()
+  local ctrl, env = setup({ mana = 60, offResource = true, drinks = THREE, group = PARTY },
+    function(p) p.report.enabled = true; p.report.below = 100 end)
+  fight(ctrl, env)
+  eq(#env.alerts, 0); eq(#env.buttonShows, 0); eq(#env.sent, 0)
+  env.mana = 35
+  fight(ctrl, env)
+  eq(env.alerts, { { "low", 35 } })
+  eq(#env.buttonShows, 1)
+  eq(env.sent, { { "Mana: 35%", "PARTY" } })
+end)
+
+test("off-resource: with the setting off it alerts as usual; mana as my resource is unaffected", function()
+  local ctrl, env = setup({ mana = 60, offResource = true }, function(p) p.alert.lowOnlyOffResource = false end)
+  fight(ctrl, env)
+  eq(env.alerts, { { "heads", 60 } })
+  ctrl, env = setup({ mana = 60 })
+  fight(ctrl, env)
+  eq(env.alerts, { { "heads", 60 } })
+end)
+
+test("off-resource: unreadable mana stays quiet (low can't be confirmed)", function()
+  local ctrl, env = setup({ mana = 10, unknownMana = true, offResource = true, drinks = THREE })
+  fight(ctrl, env); env:advance(5)
+  eq(#env.alerts, 0); eq(#env.buttonShows, 0)
+end)
+
+test("off-resource, hidden mana: the game draws only Low and Critical; button and report need confirmed low", function()
+  local ctrl, env = setup({ hiddenMana = true, offResource = true, drinks = THREE },
+    function(p) p.report.enabled = true end)
+  fight(ctrl, env)
+  eq(env.hiddenAlerts, { { sound = false, lowOnly = true } })
+  eq(#env.buttonShows, 0); eq(#env.hiddenPrints, 0)
+  env.lowConfirmed = true
+  fight(ctrl, env)
+  eq(env.hiddenAlerts[2], { sound = true, lowOnly = true })
+  eq(#env.buttonShows, 1); eq(env.hiddenPrints, { "Mana: %m%" })
+end)
+
+test("off-resource: no stock check on entering a dungeon, but asking for one still answers", function()
+  local ctrl, env = inDungeon({ offResource = true, drinks = {} })
+  eq(#env.stocks, 0); eq(#env.printed, 0)
+  ctrl:StockCheck()
+  eq(#env.stocks, 1)
+  ctrl, env = inDungeon({ offResource = true, drinks = {} }, function(p) p.alert.lowOnlyOffResource = false end)
+  eq(#env.stocks, 1)
+end)
+
+test("off-resource: no mid-run stock warning while quiet", function()
+  local ctrl, env = inDungeon({ mana = 60, drinks = { d("A", 800, 30, true, 25) } })
+  env.printed = {}
+  env.offResource = true
+  env.drinks = { d("A", 800, 30, true, 10) }
+  fight(ctrl, env); env:advance(5)
+  eq(#env.printed, 0); eq(#env.stocks, 1, "only the entry check")
+end)

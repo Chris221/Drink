@@ -12,6 +12,7 @@ ns.defaults = {
       waitTimeout = 60,
       locked = true,
       pullWhileDrinking = true, -- alert if the group pulls while I'm sitting
+      lowOnlyOffResource = true, -- bear/cat form, shadow...: only alert at Low or Critical
       scale = 1,
       point = { "CENTER", "CENTER", 0, 180 },
     },

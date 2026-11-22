@@ -1,6 +1,6 @@
 ## Interface: 16001, 50504, 120105, 120107
 ## Title: Drink
-## Notes: Healer drink alerts: tells you when to drink after combat and announces it to your group.
+## Notes: Drink alerts for anyone with mana: tells you when to drink after combat and announces it to your group.
 ## Author: Chris
 ## Version: 1.0.0
 ## SavedVariables: DrinkDB

@@ -49,11 +49,16 @@ local function buildEnv()
     after = function(delay, fn) C_Timer.After(delay, fn) end,
     getManaPct = Compat.GetManaPercent,
     manaHidden = function() return Compat.ManaHidden and Compat.ManaHidden() or false end,
-    lowManaConfirmed = function() return Compat.LowManaConfirmed and Compat.LowManaConfirmed() or false end,
-    showAlertHidden = function(sound)
+    -- "Low" here means below the Critical cutoff, as near as my spell costs allow.
+    lowManaConfirmed = function()
+      return Compat.LowManaConfirmed and Compat.LowManaConfirmed(Drink.db.profile.cutoffs.low) or false
+    end,
+    manaIsActive = function() return not Compat.ManaIsActive or Compat.ManaIsActive() end,
+    showAlertHidden = function(sound, lowOnly)
       if not (ns.Alert and ns.Alert.ShowHidden) then return end
       local p = Drink.db.profile
-      ns.Alert.ShowHidden(Compat.HiddenManaView(ns.Logic.TierBands(p.cutoffs, p.tiers, p.alert.skipAtFull)), sound)
+      local bands = ns.Logic.TierBands(p.cutoffs, p.tiers, p.alert.skipAtFull, lowOnly)
+      ns.Alert.ShowHidden(Compat.HiddenManaView(bands), sound)
     end,
     printHidden = function(template) pcall(print, Compat.HiddenMessage(template)) end,
     hasMana = Compat.HasMana,

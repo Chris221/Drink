@@ -121,6 +121,8 @@ function ns.BuildOptions(getProfile)
           locked = lockOption(),
           pullWhileDrinking = opt("toggle", { "alert", "pullWhileDrinking" }, "Warn me if the group pulls while I'm drinking",
             { width = "full" }),
+          lowOnlyOffResource = opt("toggle", { "alert", "lowOnlyOffResource" }, "In bear or cat form, only alert when mana is low",
+            { width = "full", desc = "Applies whenever mana isn't what you're fighting with: druid forms, or specs like shadow and elemental on Retail. You're only alerted at Low or Critical, and the stock check on entering a dungeon is skipped." }),
           scale = opt("range", { "alert", "scale" }, "Alert scale", { min = 0.5, max = 2, step = 0.05 }, relayout),
         },
       },

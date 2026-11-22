@@ -63,7 +63,8 @@ end
 local TIER_ORDER = { "critical", "low", "heads", "fyi" }
 
 -- Each enabled tier's mana range as fractions of max: { tier, from, to } (to = nil: up to 100%).
-function Logic.TierBands(cutoffs, tiers, skipAtFull)
+-- lowOnly: just Low and Critical (mana isn't the resource I'm fighting with).
+function Logic.TierBands(cutoffs, tiers, skipAtFull, lowOnly)
   local edges = {
     critical = { 0, cutoffs.low / 100 },
     low = { cutoffs.low / 100, cutoffs.heads / 100 },
@@ -73,7 +74,7 @@ function Logic.TierBands(cutoffs, tiers, skipAtFull)
   local out = {}
   for _, tier in ipairs(TIER_ORDER) do
     local t = tiers[tier]
-    if t and t.enabled then
+    if t and t.enabled and (not lowOnly or tier == "low" or tier == "critical") then
       out[#out + 1] = { tier = tier, from = edges[tier][1], to = edges[tier][2] }
     end
   end

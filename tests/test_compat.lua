@@ -5,7 +5,7 @@ local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAur
   "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
   "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3",
   "C_RestrictedActions", "InCombatLockdown", "C_CurveUtil", "UnitPowerPercent", "CurveConstants", "C_SpellBook", "C_Spell",
-  "GetManaRegen", "UnitClass", "UnitName", "UnitIsUnit" }
+  "GetManaRegen", "UnitClass", "UnitName", "UnitIsUnit", "UnitPowerType" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
 local function with_globals(g, fn)
@@ -241,30 +241,61 @@ test("compat: hidden message formats the template with the game's percent", func
   end)
 end)
 
-local function spellWorld(insufficient)
-  return curveWorld({
+-- spells: { [id] = { cost = n, passive = bool } }; asked collects the spell the game is asked about.
+local function spellWorld(spells, insufficient, asked, extra)
+  local ids = {}
+  for id in pairs(spells) do ids[#ids + 1] = id end
+  table.sort(ids)
+  local g = curveWorld({
     Enum = { PowerType = { Mana = 0 }, LuaCurveType = { Step = 1 }, SpellBookSpellBank = { Player = 0 },
              SpellBookItemType = { Spell = 1 } },
+    UnitPowerMax = function() return 1000 end,
     C_SpellBook = {
       GetNumSpellBookSkillLines = function() return 1 end,
-      GetSpellBookSkillLineInfo = function() return { itemIndexOffset = 0, numSpellBookItems = 3 } end,
+      GetSpellBookSkillLineInfo = function() return { itemIndexOffset = 0, numSpellBookItems = #ids } end,
       GetSpellBookItemInfo = function(slot)
-        return ({ { spellID = 10, itemType = 1 }, { spellID = 20, itemType = 1 }, { spellID = 30, itemType = 1, isPassive = true } })[slot]
+        local id = ids[slot]
+        return id and { spellID = id, itemType = 1, isPassive = spells[id].passive }
       end,
     },
     C_Spell = {
-      GetSpellPowerCost = function(id)
-        return ({ [10] = { { type = 0, cost = 125 } }, [20] = { { type = 0, cost = 255 } }, [30] = { { type = 0, cost = 999 } } })[id]
-      end,
-      IsSpellUsable = function(id) assert(id == 20, "asks about the costliest active spell"); return not insufficient, insufficient end,
+      GetSpellPowerCost = function(id) return { { type = 0, cost = spells[id].cost } } end,
+      IsSpellUsable = function(id) asked[#asked + 1] = id; return not insufficient, insufficient end,
     },
   })
+  for k, v in pairs(extra or {}) do g[k] = v end
+  return g
 end
 
-test("compat: low mana confirmed when the costliest spell is unaffordable", function()
-  with_globals(spellWorld(true), function(C) eq(C.LowManaConfirmed(), true) end)
-  with_globals(spellWorld(false), function(C) eq(C.LowManaConfirmed(), false) end)
-  with_globals(curveWorld(), function(C) eq(C.LowManaConfirmed(), false, "no spellbook API") end)
+-- 30 is passive; 40 is a resurrection; 50 takes all my mana (Lay on Hands).
+local BOOK = { [10] = { cost = 125 }, [20] = { cost = 255 }, [30] = { cost = 150, passive = true },
+               [40] = { cost = 600 }, [50] = { cost = 1000 } }
+
+test("compat: low mana is judged by the spell costing nearest the cutoff, not the costliest", function()
+  local asked = {}
+  with_globals(spellWorld(BOOK, true, asked), function(C) eq(C.LowManaConfirmed(20), true) end)
+  with_globals(spellWorld(BOOK, false, asked), function(C) eq(C.LowManaConfirmed(20), false) end)
+  eq(asked, { 20, 20 }, "255 is nearest 20% of 1000: not the passive, the 600 or the all-mana spell")
+  asked = {}
+  with_globals(spellWorld(BOOK, true, asked), function(C) C.LowManaConfirmed(55) end)
+  eq(asked, { 40 }, "follows the cutoff")
+  with_globals(curveWorld(), function(C) eq(C.LowManaConfirmed(20), false, "no spellbook API") end)
+end)
+
+test("compat: a spell that takes all my mana is never the yardstick", function()
+  local asked = {}
+  with_globals(spellWorld({ [50] = { cost = 1000 } }, false, asked), function(C) eq(C.LowManaConfirmed(20), false) end)
+  eq(asked, {}, "nothing to ask about")
+  with_globals(spellWorld({ [10] = { cost = 125 }, [50] = { cost = 1000 } }, true, asked),
+    function(C) eq(C.LowManaConfirmed(100), true) end)
+  eq(asked, { 10 })
+end)
+
+test("compat: with max mana unreadable the costliest spell is the yardstick", function()
+  local asked = {}
+  with_globals(spellWorld(BOOK, true, asked, { UnitPowerMax = function() return SECRET end, issecretvalue = function(v) return v == SECRET end }),
+    function(C) eq(C.LowManaConfirmed(20), true) end)
+  eq(asked, { 50 })
 end)
 
 -- Extras ------------------------------------------------------------------------
@@ -308,6 +339,16 @@ test("compat: a secret class or name is skipped, not compared", function()
   party[1], party[2] = true, true
   with_globals(groupWorld(party, false, { issecretvalue = function(v) return v == SECRET end }),
     function(C) eq(C.FindMage(), nil) end)
+end)
+
+test("compat: a mage is never told to ask another mage for water", function()
+  local party = { player = { name = "Me", file = "MAGE" }, party1 = { name = "Jaina", file = "MAGE" } }
+  party[1] = true
+  with_globals(groupWorld(party, false), function(C) eq(C.FindMage(), nil) end)
+  -- My own class hidden by the game: not known to be a mage, so the lookup still works.
+  party.player.file = SECRET
+  with_globals(groupWorld(party, false, { issecretvalue = function(v) return v == SECRET end }),
+    function(C) eq(C.FindMage(), "Jaina") end)
 end)
 
 test("compat: whisper uses the modern or legacy send", function()
@@ -360,4 +401,14 @@ test("compat: group combat is unknown (nil) when the game hides it, never tested
   with_globals(g, function(C) eq(C.GroupInCombat(), true) end)
   g.UnitAffectingCombat = function() return false end
   with_globals(g, function(C) eq(C.GroupInCombat(), false) end)
+end)
+
+test("compat: mana is my active resource unless I'm fighting on another one", function()
+  with_globals({ UnitPowerType = function() return 0, "MANA" end }, function(C) eq(C.ManaIsActive(), true) end)
+  with_globals({ UnitPowerType = function() return 1, "RAGE" end }, function(C) eq(C.ManaIsActive(), false, "bear form") end)
+  with_globals({ Enum = { PowerType = { Mana = 0 } }, UnitPowerType = function() return 3, "ENERGY" end },
+    function(C) eq(C.ManaIsActive(), false, "cat form") end)
+  with_globals({}, function(C) eq(C.ManaIsActive(), true, "no API: assume mana") end)
+  with_globals({ UnitPowerType = function() return SECRET end, issecretvalue = function(v) return v == SECRET end },
+    function(C) eq(C.ManaIsActive(), true, "hidden: assume mana, never compared") end)
 end)

@@ -324,15 +324,20 @@ function Compat.HiddenMessage(template)
   return "[Drink] " .. Logic.WithoutNumber(template, "Drinking")
 end
 
--- True when the game says I can't afford my most expensive active mana spell: a real,
--- comparable answer about low mana even while the amount itself is hidden.
-function Compat.LowManaConfirmed()
+-- True when the game says I can't afford a yardstick spell: a real, comparable answer about
+-- low mana even while the amount itself is hidden. The yardstick is the active mana spell
+-- whose cost is nearest targetPct of my max mana (HealerProtection's approach), so true
+-- means roughly "below targetPct". A spell that takes the whole pool (Lay on Hands) is never
+-- the yardstick. With max mana unreadable it falls back to the costliest spell.
+function Compat.LowManaConfirmed(targetPct)
   local book, spell = C_SpellBook, C_Spell
   local types = Enum and Enum.SpellBookItemType
   local bank = Enum and Enum.SpellBookSpellBank
   if not (book and book.GetNumSpellBookSkillLines and spell and spell.GetSpellPowerCost
           and spell.IsSpellUsable and types and bank) then return false end
-  local best, bestCost
+  local max = Compat.GetMaxMana()
+  local target = max and targetPct and max * targetPct / 100
+  local best, bestScore
   for i = 1, book.GetNumSpellBookSkillLines() do
     local line = book.GetSpellBookSkillLineInfo(i)
     if line and not line.offSpecID then
@@ -343,9 +348,17 @@ function Compat.LowManaConfirmed()
           if ok and type(costs) == "table" and not isSecret(costs) then
             for _, c in ipairs(costs) do
               local cost = c.cost
-              if c.type == manaType() and type(cost) == "number" and not isSecret(cost)
-                  and cost > 0 and (not bestCost or cost > bestCost) then
-                best, bestCost = item.spellID, cost
+              if not isSecret(c.type) and c.type == manaType()
+                  and not isSecret(cost) and type(cost) == "number" and cost > 0 then
+                local score -- higher is better
+                if not target then
+                  score = cost
+                elseif cost < max then
+                  score = -math.abs(cost - target)
+                end
+                if score and (not bestScore or score > bestScore) then
+                  best, bestScore = item.spellID, score
+                end
               end
             end
           end
@@ -357,6 +370,15 @@ function Compat.LowManaConfirmed()
   local ok, _, insufficient = pcall(spell.IsSpellUsable, best)
   if not ok or isSecret(insufficient) then return false end
   return insufficient == true
+end
+
+-- False when I'm fighting on another resource (bear or cat form, shadow, elemental...): the
+-- mana pool is there but isn't what I'm spending. Unknown counts as mana.
+function Compat.ManaIsActive()
+  if not UnitPowerType then return true end
+  local ok, powerType = pcall(UnitPowerType, "player")
+  if not ok or isSecret(powerType) or powerType == nil then return true end
+  return powerType == manaType()
 end
 
 -- Extras ------------------------------------------------------------------------
@@ -372,6 +394,9 @@ end
 -- Name of a mage in my group (not me), or nil. Secret class/name values are skipped untested.
 function Compat.FindMage()
   if not (IsInGroup and IsInGroup()) or not UnitClass or not UnitName then return nil end
+  -- A mage makes their own water: never offer to ask another mage.
+  local _, myClass = UnitClass("player")
+  if not isSecret(myClass) and myClass == "MAGE" then return nil end
   local raid = IsInRaid and IsInRaid()
   local n = GetNumGroupMembers and GetNumGroupMembers() or 0
   local count = raid and n or n - 1

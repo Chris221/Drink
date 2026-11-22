@@ -118,14 +118,29 @@ function Controller:Evaluate(duration, endedAt)
   -- _forever_: mana is a secret value. The game draws it, but the addon can't compare it,
   -- so tiers are picked by the game (curves) and thresholds can't apply.
   local hidden = pct == nil and env.manaHidden()
+  local confirmedLow = hidden and env.lowManaConfirmed()
 
   local a = p.alert
+  -- Fighting on another resource (bear or cat form, shadow, elemental...): mana isn't what
+  -- I'm spending, so only speak up when it is actually low.
+  local lowOnly = a.lowOnlyOffResource and not env.manaIsActive()
+  local alertOnly = false
+  if lowOnly then
+    if hidden then
+      -- The game still draws the alert (Low and Critical only); the rest needs confirmed low.
+      alertOnly = not confirmedLow
+    else
+      local tier = Logic.GetTier(pct, p.cutoffs)
+      if tier ~= "low" and tier ~= "critical" then return end
+    end
+  end
+
   if a.enabled
     and not self.drinking -- already drinking (e.g. sat down while waiting for the group)
     and not (a.skipAtFull and pct == 100)
     and not (a.onlyInGroup and not inGroup(env.groupState())) then
     if hidden then
-      env.showAlertHidden(env.lowManaConfirmed())
+      env.showAlertHidden(confirmedLow, lowOnly)
     else
       local tier = Logic.GetTier(pct, p.cutoffs)
       local t = p.tiers[tier]
@@ -134,6 +149,8 @@ function Controller:Evaluate(duration, endedAt)
       end
     end
   end
+
+  if alertOnly then return end
 
   local r = p.report
   local announcedSinceEnd = self.announcedAt and endedAt and self.announcedAt >= endedAt
@@ -224,7 +241,13 @@ function Controller:OnEnteringWorld(isReload, instanceType)
   self:OnZoneChanged()
   if self.p.stock.enabled and (instanceType == "party" or instanceType == "raid") then
     -- Skip while dead/ghost (corpse run): items may read as unusable and falsely say STOCK UP.
-    self.env.after(STOCK_DELAY, function() if not self.env.isDead() then self:StockCheck() end end)
+    self.env.after(STOCK_DELAY, function()
+      local env = self.env
+      if env.isDead() then return end
+      -- Not fighting on mana (bear or cat form, shadow...): don't nag about drinks.
+      if self.p.alert.lowOnlyOffResource and not env.manaIsActive() then return end
+      self:StockCheck()
+    end)
   end
 end
 

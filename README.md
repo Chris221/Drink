@@ -1,6 +1,8 @@
 # Drink
 
-A World of Warcraft addon for healers. The moment combat ends it tells you to drink, louder the lower your mana is, and it can tell your group when you start drinking.
+A World of Warcraft addon for anyone who uses mana: healers, tanks and damage dealers alike. The moment combat ends it tells you to drink, louder the lower your mana is, and it can tell your group when you start drinking.
+
+It goes by your mana, not your role or class, so it needs no setup per character. Characters without mana never see it. Settings are shared by all your characters unless you give one its own profile (Profiles tab).
 
 Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from one folder.
 
@@ -25,10 +27,12 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
 
 ## Extras
 
+- **Bear form, cat form and the like.** When mana isn't what you're fighting with (druid forms, or specs like shadow and elemental on Retail), you're only alerted at Low or Critical, with the drink button and report as usual then. Above that it stays quiet, and the stock check on entering a dungeon is skipped (`/drink stock` still answers). Untick "In bear or cat form, only alert when mana is low" to be alerted as usual.
+
 - **Drink stats, just for you.** Each time you start drinking, your chat shows how long the recommended drink takes to fill you up, counting natural regen: `[Drink] Melon Juice: full in ~18s`, or `2 drinks to fill (~42s)`.
 - **"Drinking" once per break.** A second or third drink before the next fight isn't announced to the group again. The stats line still prints.
 - **"Ready" when you stand up.** Posts `Ready — 85% mana` once per break, at 80% mana or more, after a drink that was announced. Never while you or anyone in the group is in combat.
-- **Ask a mage for water.** When the stock check finds you low, or with no mage water, and a mage is in your group, an "Ask <name> for water" button appears for 10s. Clicking it whispers them (or uses group chat). Nothing is sent unless you click.
+- **Ask a mage for water.** When the stock check finds you low, or with no mage water, and a mage is in your group, an "Ask <name> for water" button appears for 10s. Clicking it whispers them (or uses group chat). Nothing is sent unless you click. Never offered when you're a mage yourself.
 - **Keybind.** Game Menu → Options → Keybindings → Drink → "Use recommended drink". It drinks the last drink the button offered, even after the button has faded.
 - **Low stock mid-run.** One "STOCK UP" warning if you drop below your threshold inside a dungeon or raid.
 - **Pulled while drinking.** "PULL - stand up!" if the group goes into combat while you're sitting.
@@ -39,12 +43,13 @@ Forever hides your current mana from addons all the time (a "secret value"): an 
 it to the game to display, but can't compare it or put it in a chat message. So there:
 
 - The alert still shows your real % in the right tier style. The game picks the tier; every tier stays up for 4s.
-- Alert sounds play only when the game says you can't afford your most expensive spell (roughly the critical range).
+- Alert sounds play only when the game confirms you're low. The addon asks whether you can afford the spell whose cost is nearest your Critical cutoff (20% by default), so it's roughly the critical range and depends on your spells. A spell that takes all your mana (Lay on Hands) is never used for this.
 - Your party sees "Drinking" (no number). Your own chat shows the full "Drinking — 57% mana".
 - The end-of-fight report, if on, prints to your own chat after every fight.
 - The drink button shows after every fight with the smallest drink that refills your whole bar.
 - The stock check works as normal.
-- "Ready" is sent without the number, and is held back only when the game confirms you're very low.
+- "Ready" is sent without the number, and is held back only when the game confirms you're low.
+- In bear or cat form the alert still shows at Low or Critical, but the drink button and report need the game to confirm you're low.
 - The drink stats line always shows both parts: `[Drink] Melon Juice x1: ~18s to full`. The game works the numbers out; at full mana it reads `x0: ~0s`.
 - `/drink debug` logs whether mana is readable and which game restrictions are active.
 

@@ -21,7 +21,11 @@ function FakeEnv.New(o)
   env.hiddenAlerts, env.hiddenPrints = {}, {}
   function env.manaHidden() return env.hiddenMana == true end
   function env.lowManaConfirmed() return env.lowConfirmed == true end
-  function env.showAlertHidden(sound) env.hiddenAlerts[#env.hiddenAlerts + 1] = { sound = sound } end
+  function env.showAlertHidden(sound, lowOnly)
+    env.hiddenAlerts[#env.hiddenAlerts + 1] = { sound = sound, lowOnly = lowOnly or nil }
+  end
+  -- false in bear or cat form, shadow, elemental...: mana is there but isn't what I fight with.
+  function env.manaIsActive() return env.offResource ~= true end
   function env.printHidden(template) env.hiddenPrints[#env.hiddenPrints + 1] = template end
   function env.hasMana() return not env.noMana end
   function env.inCombatNow() return env.inCombat == true end

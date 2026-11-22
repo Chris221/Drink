@@ -208,7 +208,8 @@ test("options: extras settings exist", function()
     end
   end
   for _, p in ipairs({ "ready.enabled", "ready.channel", "ready.soloLocal", "ready.atLeast", "ready.template",
-      "mage.enabled", "mage.channel", "mage.template", "stock.midRun", "alert.pullWhileDrinking", "recommend.stats" }) do
+      "mage.enabled", "mage.channel", "mage.template", "stock.midRun", "alert.pullWhileDrinking", "recommend.stats",
+      "alert.lowOnlyOffResource" }) do
     truthy(paths[p], "missing option " .. p)
   end
   eq(lockNames, { "Lock alert and drink button", "Lock alert and drink button" }, "on the Alert and Drinks tabs")
