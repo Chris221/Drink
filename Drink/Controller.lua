@@ -1,5 +1,5 @@
 -- Combat / drinking state machine. Talks to the game only through `env`
--- (see docs/superpowers/plans/2026-11-20-drink-addon.md, Task 2, for the contract).
+-- (tests/fake_env.lua is a full stub of that contract).
 local ADDON, ns = ...
 local Logic = ns.Logic
 

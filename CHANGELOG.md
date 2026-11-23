@@ -3,7 +3,7 @@
 ## Changes
 ### Changes in 1.0.0
 - First release, for WoW Forever (1.60), Mists of Pandaria Classic (5.5) and Retail/Midnight (12.x) from one folder
-- Combat-end alert scaled by mana %: FYI, Heads-up, Low and CRITICAL tiers, each with its own text size, colour, sound and (Critical) screen-edge flash
+- Combat-end alert scaled by mana %: FYI (small and silent), Heads-up, Low and CRITICAL, each louder than the last, with a red screen-edge flash at Critical
 - "Drinking — 34% mana" posted to instance, raid or party chat once per break; never at full mana (buff food) or after a `/reload` mid-drink
 - Optional end-of-fight mana report; when solo, both messages print just to you
 - "Which drink?" button after a fight: the smallest drink in your bags that refills you, learning the usual time between pulls in the zone; mage water preferred; click it or use the keybind to drink
