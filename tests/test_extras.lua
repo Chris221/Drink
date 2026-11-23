@@ -3,6 +3,7 @@ local FakeEnv = require("fake_env")
 local ns = {}
 load_addon(ns, "Drink/Logic.lua")
 load_addon(ns, "Drink/Drinks.lua")
+load_addon(ns, "Drink/Tally.lua")
 load_addon(ns, "Drink/Defaults.lua")
 load_addon(ns, "Drink/Controller.lua")
 

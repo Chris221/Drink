@@ -30,7 +30,7 @@ end)
 
 test("load: toc file order and existence", function()
   local files = tocFiles()
-  eq(files, { "embeds.xml", "Logic.lua", "Drinks.lua", "Defaults.lua", "Compat.lua", "Controller.lua",
+  eq(files, { "embeds.xml", "Logic.lua", "Drinks.lua", "Tally.lua", "Defaults.lua", "Compat.lua", "Controller.lua",
     "Alert.lua", "DrinkButton.lua", "Options.lua", "Drink.lua" })
   for _, f in ipairs(files) do truthy(exists("Drink/" .. f), "missing Drink/" .. f) end
 end)
@@ -137,6 +137,47 @@ test("load: glue passes Edit Mode opening and closing on to the alert", function
     eq(got, { true, false })
   end)
   for k in pairs({ LibStub = true, EditModeManagerFrame = true, EventRegistry = true }) do _G[k] = saved[k] end
+  if not ok then error(err, 0) end
+end)
+
+test("load: glue gives the controller this character's saved runs and the dungeon's name", function()
+  local addon, db
+  local names = { "LibStub", "IsInInstance", "GetInstanceInfo", "time", "C_Timer", "InCombatLockdown", "UnitBuff",
+    "C_UnitAuras", "GetTime" }
+  local saved = {}
+  for _, n in ipairs(names) do saved[n] = _G[n] end
+  _G.IsInInstance = function() return true, "party" end
+  _G.GetInstanceInfo = function() return "Deadmines", "party" end
+  _G.time = function() return 12345 end
+  _G.GetTime = function() return 50 end
+  _G.C_Timer = { After = function() end }
+  _G.InCombatLockdown = function() return false end
+  _G.UnitBuff = function() return nil end
+  _G.C_UnitAuras = nil
+  _G.LibStub = function(name)
+    if name == "AceAddon-3.0" then
+      return { NewAddon = function(_, n) addon = { name = n }; return addon end }
+    elseif name == "AceDB-3.0" then
+      return { New = function(_, _, defaults)
+        db = { profile = deepcopy(defaults.profile), char = deepcopy(defaults.char), RegisterCallback = function() end }
+        return db
+      end }
+    end
+    error("unexpected lib " .. tostring(name))
+  end
+  local ok, err = pcall(function()
+    local ns = {}
+    for _, f in ipairs({ "Logic", "Drinks", "Tally", "Defaults", "Compat", "Controller", "Drink" }) do
+      load_addon(ns, "Drink/" .. f .. ".lua")
+    end
+    eq(ns.defaults.char, { runs = {} }, "saved per character")
+    addon:OnInitialize()
+    truthy(ns.ctrl().store == db.char, "the controller works on the saved table itself")
+    addon:PLAYER_ENTERING_WORLD("PLAYER_ENTERING_WORLD", false, false)
+    eq(db.char.run.name, "Deadmines")
+    eq(db.char.run.seen, 12345, "stamped with the real-world clock")
+  end)
+  for _, n in ipairs(names) do _G[n] = saved[n] end
   if not ok then error(err, 0) end
 end)
 

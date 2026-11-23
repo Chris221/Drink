@@ -12,6 +12,8 @@ function FakeEnv.New(o)
   for k, v in pairs(o or {}) do env[k] = v end
 
   function env.now() return env.t end
+  -- Real-world clock (seconds): survives /reload and logging out, unlike now().
+  function env.wallTime() return (env.wall or 1700000000) + env.t end
   function env.after(delay, fn)
     env.seq = env.seq + 1
     env.queue[#env.queue + 1] = { at = env.t + delay, seq = env.seq, fn = fn }
@@ -30,7 +32,8 @@ function FakeEnv.New(o)
   function env.hasMana() return not env.noMana end
   function env.inCombatNow() return env.inCombat == true end
   function env.isDead() return env.dead end
-  function env.isDrinking() return env.drinking end
+  -- Second value: when the drink buff runs out (nil where the game won't say).
+  function env.isDrinking() return env.drinking, env.drinking and env.drinkEnds or nil end
   function env.groupState() return env.group end
   function env.groupInCombat() return env.groupCombat end
   function env.chatLocked() return env.locked end

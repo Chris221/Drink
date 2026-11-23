@@ -28,19 +28,24 @@ function Compat.GetManaPercent()
   return Logic.ManaPercent(cur, max)
 end
 
+-- Returns whether a drink buff is up and, where the game says, when it runs out (GetTime
+-- seconds; nil if hidden).
 function Compat.IsDrinking(nameSet)
   local getAura = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
   for i = 1, 255 do
-    local name
+    local name, ends, _
     if getAura then
       local aura = getAura("player", i, "HELPFUL")
       if not aura then return false end
-      name = aura.name
+      name, ends = aura.name, aura.expirationTime
     else
-      name = UnitBuff("player", i)
+      name, _, _, _, _, ends = UnitBuff("player", i)
       if not name then return false end
     end
-    if not isSecret(name) and Logic.IsDrinkAura(name, nameSet) then return true end
+    if not isSecret(name) and Logic.IsDrinkAura(name, nameSet) then
+      if isSecret(ends) or type(ends) ~= "number" then ends = nil end
+      return true, ends
+    end
   end
   return false
 end
@@ -388,6 +393,14 @@ function Compat.WatchEditMode(onChange)
   EventRegistry:RegisterCallback("EditMode.Enter", function() onChange(true) end)
   EventRegistry:RegisterCallback("EditMode.Exit", function() onChange(false) end)
   return true
+end
+
+-- Name of the dungeon or raid I'm in (plain string), or nil if the game won't say.
+function Compat.InstanceName()
+  if not GetInstanceInfo then return nil end
+  local ok, name = pcall(GetInstanceInfo)
+  if not ok or isSecret(name) or type(name) ~= "string" or name == "" then return nil end
+  return name
 end
 
 -- Extras ------------------------------------------------------------------------

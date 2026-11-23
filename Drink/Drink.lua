@@ -46,6 +46,7 @@ end
 local function buildEnv()
   return {
     now = function() return GetTime() end,
+    wallTime = function() return time() end, -- real-world seconds: still meaningful after /reload
     after = function(delay, fn) C_Timer.After(delay, fn) end,
     getManaPct = Compat.GetManaPercent,
     manaHidden = function() return Compat.ManaHidden and Compat.ManaHidden() or false end,
@@ -99,7 +100,7 @@ function Drink:Rebuild()
   if ctrl then
     ctrl:SetProfile(self.db.profile)
   else
-    ctrl = ns.Controller.New(self.db.profile, env)
+    ctrl = ns.Controller.New(self.db.profile, env, self.db.char)
   end
   if ns.Alert then ns.Alert.Init(self.db.profile) end
   if ns.DrinkButton then ns.DrinkButton.Init(self.db.profile) end
@@ -152,7 +153,8 @@ end
 function Drink:PLAYER_ENTERING_WORLD(_, isInitialLogin, isReloadingUi)
   ctrl:SyncDrinking()
   local _, instanceType = IsInInstance()
-  ctrl:OnEnteringWorld(isReloadingUi and true or false, instanceType)
+  ctrl:OnEnteringWorld(isReloadingUi and true or false, instanceType,
+    Compat.InstanceName and Compat.InstanceName() or nil)
 end
 
 function Drink:ZONE_CHANGED_NEW_AREA() ctrl:OnZoneChanged() end

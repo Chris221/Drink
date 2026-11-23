@@ -8,6 +8,7 @@
 embeds.xml
 Logic.lua
 Drinks.lua
+Tally.lua
 Defaults.lua
 Compat.lua
 Controller.lua

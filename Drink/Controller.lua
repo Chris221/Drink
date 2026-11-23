@@ -17,10 +17,14 @@ local MAGE_SECONDS = 10   -- how long the "ask a mage" button stays up
 local MIDRUN_LINE_DELAY = 5 -- let the drink alert have its time before the stock line replaces it
 local READY_GRACE = 2     -- the drink buff ending isn't standing up: wait for a 2nd drink or a pull
 
-function Controller.New(profile, env)
+-- store: this character's saved table (dungeon run tally, see Tally.lua).
+function Controller.New(profile, env, store)
+  store = store or {}
+  store.runs = store.runs or {}
   return setmetatable({
     p = profile,
     env = env,
+    store = store,
     gen = 0,              -- bumps on every combat transition; stale callbacks compare against it
     combatStart = nil,
     drinking = nil,       -- nil = not yet observed (e.g. right after /reload): first observation is not an edge
@@ -37,6 +41,10 @@ function Controller.New(profile, env)
     stockWasLow = nil,    -- result of the last stock check in this instance
     mageName = nil,       -- set while the "ask a mage" button is showing
     mageToken = 0,
+    drinkStartedAt = nil, -- when the drink I'm timing began (only drinks that count)
+    drinkEnds = nil,      -- when the drink buff runs out, where the game says
+    pullCounted = false,  -- one mid-drink pull per break
+    worldToken = 0,       -- bumps on every loading screen; a pending "left the dungeon" checks it
   }, Controller)
 end
 
@@ -58,6 +66,8 @@ end
 function Controller:OnCombatStart()
   self.gen = self.gen + 1
   self.combatStart = self.env.now()
+  if self.drinking and self.drinkStartedAt then self:CountPull() end -- still seated when it reached me
+  self:StopDrinkClock()
   self.drinking = false   -- entering combat removes the drink buff; aura scans pause in combat
   self.downtime:RecordStart(self.combatStart)
   self.env.hideAlert()    -- don't carry a DRINK alert / red flash into the next pull
@@ -72,6 +82,12 @@ function Controller:OnCombatEnd()
   local gen, env = self.gen, self.env
   local now = env.now()
   self.downtime:RecordEnd(now)
+  self.pullCounted = false
+  local run = self:Run()
+  if run then
+    run.fights = run.fights + 1
+    run.seen = env.wallTime()
+  end
   env.hideDrinkButton()
   -- Unknown start (e.g. loaded mid-fight) counts as a long fight.
   local duration = self.combatStart and (now - self.combatStart) or math.huge
@@ -177,7 +193,9 @@ function Controller:MidRunStock()
   if self.instanceType ~= "party" and self.instanceType ~= "raid" then return end
   local max = env.getMaxMana()
   if not max then return end
-  local summary = ns.Drinks.StockSummary(env.getUsableDrinks(), max, st.threshold)
+  local need, usual = self:StockNeed()
+  local summary = ns.Drinks.StockSummary(env.getUsableDrinks(), max, need)
+  if usual then summary.need = need end
   local wasLow = self.stockWasLow
   self.stockWasLow = summary.low
   if not summary.low or wasLow then return end
@@ -234,9 +252,11 @@ end
 
 -- Stock check ---------------------------------------------------------------
 
-function Controller:OnEnteringWorld(isReload, instanceType)
+function Controller:OnEnteringWorld(isReload, instanceType, instanceName)
+  local wasInside = self.instanceType == "party" or self.instanceType == "raid"
   self.instanceType = instanceType
-  if isReload then return end
+  if isReload then return end -- the open run is saved: it simply carries on
+  self:TrackRun(wasInside, instanceName)
   self.stockWasLow = nil
   self:OnZoneChanged()
   if self.p.stock.enabled and (instanceType == "party" or instanceType == "raid") then
@@ -256,7 +276,9 @@ function Controller:StockCheck()
   local max = env.getMaxMana()
   if not env.hasMana() or not max then return end
   local drinks = env.getUsableDrinks()
-  local summary = ns.Drinks.StockSummary(drinks, max, self.p.stock.threshold)
+  local need, usual = self:StockNeed()
+  local summary = ns.Drinks.StockSummary(drinks, max, need)
+  if usual then summary.need = need end
   self.stockWasLow = summary.low
   env.showStock(summary)
   if summary.breakdown ~= "" then
@@ -264,8 +286,77 @@ function Controller:StockCheck()
   else
     env.print("[Drink] No drinks in your bags.")
   end
+  if usual then env.print("[Drink] " .. ns.Tally.UsualLine(self.store.run.name, usual)) end
   self:OfferMage(summary, drinks)
 end
+
+-- How many drinks I should be carrying. In a dungeon I've run before: the most one of the
+-- kept runs took, less what this run has used so far (returned with those past figures).
+-- Anywhere else: the fixed number from the options.
+function Controller:StockNeed()
+  local st, run = self.p.stock, self:Run()
+  local usual = st.learn and run and ns.Tally.Usual(self.store, run.name) or nil
+  if not usual then return st.threshold end
+  if usual.most == 0 then return 0, usual end -- never needed a drink here: nothing to nag about
+  return math.max(1, usual.most - run.drinks), usual
+end
+
+-- Dungeon run tally ---------------------------------------------------------------
+
+-- The run I'm in, while I'm inside its dungeon or raid; nil anywhere else or with the tally off.
+function Controller:Run()
+  if not self.p.tally.enabled then return nil end
+  if self.instanceType ~= "party" and self.instanceType ~= "raid" then return nil end
+  return self.store.run
+end
+
+-- A loading screen. Landing in a dungeon or raid starts a run or carries one on; landing
+-- anywhere else alive finishes it. Dead is a corpse run: the run stays open.
+function Controller:TrackRun(wasInside, name)
+  local env, store = self.env, self.store
+  self.worldToken = self.worldToken + 1
+  if not self.p.tally.enabled then return end
+  if self.instanceType == "party" or self.instanceType == "raid" then
+    if name then
+      ns.Tally.Open(store, name, env.wallTime())
+    else
+      ns.Tally.Close(store) -- no name to file it under: don't count into somebody else's run
+    end
+    return
+  end
+  if not store.run then return end
+  local token = self.worldToken
+  env.after(STOCK_DELAY, function() -- dead-or-ghost has settled by now
+    if token ~= self.worldToken or env.isDead() then return end
+    local done, dungeon = ns.Tally.Close(store)
+    if done and wasInside and self.p.tally.summary then
+      env.print("[Drink] " .. ns.Tally.RunLine(dungeon, done))
+    end
+  end)
+end
+
+function Controller:CountDrink()
+  local run = self:Run()
+  if not run then return end
+  run.drinks = run.drinks + 1
+  run.seen = self.env.wallTime()
+end
+
+function Controller:StopDrinkClock()
+  local run, at = self:Run(), self.drinkStartedAt
+  self.drinkStartedAt = nil
+  if run and at then run.seconds = run.seconds + (self.env.now() - at) end
+end
+
+function Controller:CountPull()
+  local run = self:Run()
+  if not run or self.pullCounted then return end
+  self.pullCounted = true
+  run.pulls = run.pulls + 1
+end
+
+function Controller:RunLines() return ns.Tally.List(self.store) end
+function Controller:ForgetRuns() ns.Tally.Clear(self.store) end
 
 -- Ask a mage for water ----------------------------------------------------------
 -- Only ever offers a button. Nothing is sent until the user clicks it (RequestWater).
@@ -333,10 +424,11 @@ function Controller:PrintDrinkStats(pct, hidden)
   end
 end
 
--- While I'm sitting: alert once if the group goes from calm into combat.
+-- While I'm sitting: alert once if the group goes from calm into combat (and tally it).
 function Controller:WatchForPull()
   local env = self.env
-  if not self.p.alert.pullWhileDrinking or not inGroup(env.groupState()) then return end
+  local alert = self.p.alert.pullWhileDrinking
+  if not (alert or self:Run()) or not inGroup(env.groupState()) then return end
   local token = self.drinkToken
   -- groupInCombat() may be nil (hidden by the game): unknown is neither calm nor a pull.
   local seenCalm = env.groupInCombat() == false -- still finishing the last fight is not a new pull
@@ -346,7 +438,8 @@ function Controller:WatchForPull()
     if fighting == false then
       seenCalm = true
     elseif fighting == true and seenCalm then
-      env.showPullAlert()
+      if self.drinkStartedAt then self:CountPull() end
+      if alert then env.showPullAlert() end
       return
     end
     env.after(POLL_INTERVAL, poll)
@@ -375,19 +468,25 @@ end
 function Controller:OnAuraChanged()
   local env = self.env
   if env.inCombatNow() then return end -- nobody drinks in combat; skip the scan (raid aura spam)
-  local drinking = env.isDrinking()
+  local drinking, ends = env.isDrinking() -- ends: when the buff runs out, where the game says
   if self.drinking == nil then
     self.drinking = drinking and true or false
+    self.drinkEnds = drinking and ends or nil
     return
   end
   if drinking and not self.drinking then
     self.drinking = true
+    self.drinkEnds = ends
     self.drinkToken = self.drinkToken + 1
     env.hideAlert()
     env.hideDrinkButton() -- drank from the action bar (or the button): the button's job is done
     local an = self.p.announce
     local pct = env.getManaPct()
     local hidden = pct == nil and env.manaHidden()
+    if pct ~= 100 then -- at full mana it's food, not a drink
+      self:CountDrink()
+      self.drinkStartedAt = env.now()
+    end
     if an.enabled and not self.announcedThisBreak then -- a 2nd drink in the same break stays quiet
       local posted
       if hidden then
@@ -403,10 +502,17 @@ function Controller:OnAuraChanged()
     end
     self:WatchForPull() -- before the stats, so nothing there can stop the watcher
     self:PrintDrinkStats(pct, hidden)
+  elseif drinking then
+    -- Still drinking, but the buff now runs out later: another drink went down.
+    if ends and self.drinkEnds and ends > self.drinkEnds + 0.5 and self.drinkStartedAt then
+      self:CountDrink()
+    end
+    self.drinkEnds = ends or self.drinkEnds
   elseif not drinking then
     local was = self.drinking
     self.drinking = false
     if was then
+      self:StopDrinkClock()
       -- The buff ending isn't standing up (a drink can run out while seated): wait a moment;
       -- a second drink or a pull cancels it.
       local token, gen = self.drinkToken, self.gen

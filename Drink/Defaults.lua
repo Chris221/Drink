@@ -61,7 +61,12 @@ ns.defaults = {
       overrides = "",      -- "name or itemID = mana[, seconds]" per line
       stats = true,        -- print time-to-full / drinks needed when I start drinking
     },
-    stock = { enabled = true, threshold = 20, midRun = true },
+    -- learn: in a dungeon I've run before, go by what it took in place of the fixed threshold
+    stock = { enabled = true, threshold = 20, midRun = true, learn = true },
+    -- Dungeon run tally (see Tally.lua); summary = print it when I leave
+    tally = { enabled = true, summary = true },
     button = { point = { "CENTER", "CENTER", 0, 110 }, size = 40 },
   },
+  -- Per character: the open dungeon run and the finished ones (see Tally.lua).
+  char = { runs = {} },
 }

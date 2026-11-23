@@ -99,14 +99,60 @@ end)
 
 test("options: test buttons preview each tier", function()
   local opts = build()
-  local previewed = {}
-  ns.ctrl = function() return { Preview = function(_, k) previewed[#previewed + 1] = k end } end
+  local previewed, said = {}, {}
+  local savedChat = _G.DEFAULT_CHAT_FRAME
+  _G.DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) said[#said + 1] = m end }
+  ns.ctrl = function() return {
+    Preview = function(_, k) previewed[#previewed + 1] = k end,
+    RunLines = function() return { "Deadmines: 9 drinks last run" } end,
+  } end
   for _, opt in ipairs(leaves(opts)) do
     if opt.type == "execute" then opt.func({}) end
   end
   ns.ctrl = nil
+  _G.DEFAULT_CHAT_FRAME = savedChat
   table.sort(previewed)
   eq(previewed, { "announce", "critical", "drink", "fyi", "heads", "low", "ready", "report", "stock" })
+  eq(#said, 2, "the 'show recent runs' button: a heading, then the runs")
+  eq(said[2], "Deadmines: 9 drinks last run")
+end)
+
+test("options: /drink runs lists the saved runs, /drink runs clear forgets them", function()
+  local lines, forgot = { "Deadmines: 9-14 drinks a run (last 2 runs)", "   14 drinks, 5m 0s drinking" }, 0
+  ns.ctrl = function() return {
+    RunLines = function() return lines end,
+    ForgetRuns = function() forgot = forgot + 1; lines = {} end,
+  } end
+  local printed = {}
+  local say = function(m) printed[#printed + 1] = m end
+  ns.HandleSlash("runs", say)
+  truthy(printed[1]:find("this character", 1, true), "a heading says whose runs these are: " .. printed[1])
+  eq({ printed[2], printed[3] }, { "Deadmines: 9-14 drinks a run (last 2 runs)", "   14 drinks, 5m 0s drinking" })
+  eq(#printed, 3)
+  printed = {}
+  ns.HandleSlash("runs clear", say)
+  eq(forgot, 1)
+  eq(#printed, 1, "says it did it")
+  printed = {}
+  ns.HandleSlash("runs", say)
+  eq(#printed, 1)
+  truthy(printed[1]:find("No dungeon runs", 1, true), printed[1])
+  printed = {}
+  ns.HandleSlash("dance", say)
+  truthy(printed[1]:find("/drink runs", 1, true), "usage mentions /drink runs")
+  ns.ctrl = nil
+end)
+
+test("options: the run tally has its switches", function()
+  local opts = build()
+  local found = {}
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.arg and (opt.arg[1] == "tally" or (opt.arg[1] == "stock" and opt.arg[2] == "learn")) then
+      found[#found + 1] = table.concat(opt.arg, ".")
+    end
+  end
+  table.sort(found)
+  eq(found, { "stock.learn", "tally.enabled", "tally.summary" })
 end)
 
 test("options: slash commands", function()

@@ -16,6 +16,10 @@ local function preview(kind)
   if ctrl then return ctrl:Preview(kind) end
 end
 
+local function chat(msg)
+  if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(msg) end
+end
+
 function ns.BuildOptions(getProfile)
   local order = 0
   local function nextOrder() order = order + 1; return order end
@@ -216,8 +220,21 @@ function ns.BuildOptions(getProfile)
               enabled = opt("toggle", { "stock", "enabled" }, "Enabled"),
               threshold = opt("range", { "stock", "threshold" }, "Warn when fewer than N drinks", { min = 1, max = 200, step = 1 }),
               midRun = opt("toggle", { "stock", "midRun" }, "Also warn once if I drop below it during the run", { width = "full" }),
+              learn = opt("toggle", { "stock", "learn" }, "In a dungeon I've run before, go by what it took",
+                { width = "full", desc = "Compares your drinks with the most a recent run there used (less what this run has used so far), in place of the fixed number. Needs the run tally below." }),
               test = { type = "execute", name = "Check stock now", order = nextOrder(),
                        func = function() preview("stock") end },
+            },
+          },
+          tally = {
+            type = "group", inline = true, name = "Dungeon run tally", order = nextOrder(),
+            args = {
+              enabled = opt("toggle", { "tally", "enabled" }, "Keep a tally of each dungeon or raid run",
+                { width = "full", desc = "Counts drinks used, time spent drinking and pulls that cut a drink short. Saved for this character only; the last 5 runs of each dungeon are kept." }),
+              summary = opt("toggle", { "tally", "summary" }, "Print the tally when I leave", { width = "full" }),
+              show = { type = "execute", name = "Show recent runs", order = nextOrder(),
+                       desc = "Same as /drink runs. /drink runs clear forgets them.",
+                       func = function() ns.HandleSlash("runs", chat) end },
             },
           },
         },
@@ -226,7 +243,7 @@ function ns.BuildOptions(getProfile)
   }
 end
 
-local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report, ready, drink>, /drink stock, /drink lock, /drink unlock, /drink debug"
+local USAGE = "|cff33ccffDrink|r: /drink (options), /drink test <fyi, heads, low, critical, unknown, announce, report, ready, drink>, /drink stock, /drink runs, /drink lock, /drink unlock, /drink debug"
 
 -- Returns nothing; `say` prints user-facing messages.
 function ns.HandleSlash(input, say)
@@ -241,6 +258,21 @@ function ns.HandleSlash(input, say)
   elseif cmd == "stock" then
     local ctrl = ns.ctrl and ns.ctrl()
     if ctrl then ctrl:Preview("stock") end
+  elseif cmd == "runs" then
+    local ctrl = ns.ctrl and ns.ctrl()
+    if not ctrl then return end
+    if arg == "clear" then
+      ctrl:ForgetRuns()
+      say("|cff33ccffDrink|r: saved dungeon runs forgotten.")
+      return
+    end
+    local lines = ctrl:RunLines()
+    if #lines == 0 then
+      say("|cff33ccffDrink|r: No dungeon runs recorded on this character yet.")
+      return
+    end
+    say("|cff33ccffDrink|r: dungeon runs on this character")
+    for _, line in ipairs(lines) do say(line) end
   elseif cmd == "lock" or cmd == "unlock" then
     if ns.Alert then ns.Alert.SetLocked(cmd == "lock") end
     if ns.NotifyOptionsChanged then ns.NotifyOptionsChanged() end

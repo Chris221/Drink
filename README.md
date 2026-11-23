@@ -37,6 +37,8 @@ Loads on `_forever_` (1.60), MoP Classic (5.5) and Retail/Midnight (12.x) from o
 - **Keybind.** Game Menu → Options → Keybindings → Drink → "Use recommended drink". It drinks the last drink the button offered, even after the button has faded.
 - **Low stock mid-run.** One "STOCK UP" warning if you drop below your threshold inside a dungeon or raid.
 - **Pulled while drinking.** "PULL - stand up!" if the group goes into combat while you're sitting.
+- **Dungeon run tally.** Inside a dungeon or raid it counts the drinks you use, the time you spend drinking and the pulls that cut a drink short. Leaving prints one line, `[Drink] Deadmines: 11 drinks, 3m 40s drinking, pulled mid-drink 2 times`, and `/drink runs` lists the last 5 runs of each dungeon. Runs are saved per character and never leave your computer. A corpse run or a `/reload` carries on the same run; runs of fewer than 5 fights aren't kept.
+- **Stock check that learns.** In a dungeon you've run before, the stock check goes by the most a recent run there took, in place of the fixed 20: `Drinks: 8 (~14 needed) - STOCK UP`, with `Deadmines: 9-14 drinks a run (last 4 runs)` in chat. Mid-run it compares against what's still needed.
 
 ## On WoW Forever
 
@@ -49,6 +51,7 @@ it to the game to display, but can't compare it or put it in a chat message. So 
 - The end-of-fight report, if on, prints to your own chat after every fight.
 - The drink button shows after every fight with the smallest drink that refills your whole bar.
 - The stock check works as normal.
+- The run tally works, since it only counts and times. Buff food eaten in a dungeon counts as a drink there, because the addon can't see that your mana was full.
 - "Ready" is sent without the number, and is held back only when the game confirms you're low.
 - In bear or cat form the alert still shows at Low or Critical, but the drink button and report need the game to confirm you're low.
 - The drink stats line always shows both parts: `[Drink] Melon Juice x1: ~18s to full`. The game works the numbers out; at full mana it reads `x0: ~0s`.
@@ -63,6 +66,7 @@ it to the game to display, but can't compare it or put it in a chat message. So 
 | `/drink test announce` / `report` / `ready` | print the chat message locally (never sends) |
 | `/drink test drink` | show the drink button for your current mana (clicking it really drinks) |
 | `/drink stock` | run the stock check now |
+| `/drink runs` | list this character's recent dungeon runs (`/drink runs clear` forgets them) |
 | `/drink debug` | log mana readability and game restrictions to chat (until `/reload`) |
 | `/drink unlock` / `/drink lock` | move the alert and the drink button. Drag the button's corner to resize it |
 

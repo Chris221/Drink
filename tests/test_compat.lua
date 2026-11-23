@@ -5,7 +5,7 @@ local NAMES = { "Enum", "UnitPower", "UnitPowerMax", "issecretvalue", "C_UnitAur
   "C_TooltipInfo", "CreateFrame", "WorldFrame", "UnitLevel", "IsUsableItem", "GetItemCooldown",
   "DrinkScanTooltipTextLeft1", "DrinkScanTooltipTextLeft2", "DrinkScanTooltipTextLeft3",
   "C_RestrictedActions", "InCombatLockdown", "C_CurveUtil", "UnitPowerPercent", "CurveConstants", "C_SpellBook", "C_Spell",
-  "GetManaRegen", "UnitClass", "UnitName", "UnitIsUnit", "UnitPowerType", "EditModeManagerFrame", "EventRegistry" }
+  "GetManaRegen", "UnitClass", "UnitName", "UnitIsUnit", "UnitPowerType", "EditModeManagerFrame", "EventRegistry", "GetInstanceInfo" }
 
 -- Run fn with the given WoW globals installed (all others in NAMES cleared), then restore.
 local function with_globals(g, fn)
@@ -422,4 +422,33 @@ test("compat: watches the game's Edit Mode where the client has one", function()
   end)
   callbacks["EditMode.Enter"]("owner"); callbacks["EditMode.Exit"]("owner")
   eq(seen, { true, false })
+end)
+
+test("compat: drink detection also says when the buff runs out", function()
+  local auras = { { name = "Well Fed", expirationTime = 900 }, { name = "Drink", expirationTime = 130.5 } }
+  local modern = { GetAuraDataByIndex = function(_, i) return auras[i] end }
+  with_globals({ C_UnitAuras = modern }, function(C, ns)
+    local drinking, ends = C.IsDrinking(ns.Logic.ParseNames("Drink"))
+    eq(drinking, true); eq(ends, 130.5)
+  end)
+  with_globals({ C_UnitAuras = modern, issecretvalue = function(v) return v == 130.5 end }, function(C, ns)
+    local drinking, ends = C.IsDrinking(ns.Logic.ParseNames("Drink"))
+    eq(drinking, true, "still drinking")
+    eq(ends, nil, "hidden by the game: no time, and nothing compared")
+  end)
+  with_globals({ UnitBuff = function(_, i) if i == 1 then return "Drink", 1, 0, nil, 30, 77 end end }, function(C, ns)
+    local drinking, ends = C.IsDrinking(ns.Logic.ParseNames("Drink"))
+    eq(drinking, true); eq(ends, 77, "older clients")
+  end)
+end)
+
+test("compat: the name of the dungeon or raid I'm in", function()
+  with_globals({}, function(C) eq(C.InstanceName(), nil, "no such API") end)
+  with_globals({ GetInstanceInfo = function() return "Deadmines", "party" end }, function(C)
+    eq(C.InstanceName(), "Deadmines")
+  end)
+  with_globals({ GetInstanceInfo = function() return "", "none" end }, function(C) eq(C.InstanceName(), nil) end)
+  with_globals({ GetInstanceInfo = function() return "Deadmines" end, issecretvalue = function() return true end },
+    function(C) eq(C.InstanceName(), nil, "hidden by the game") end)
+  with_globals({ GetInstanceInfo = function() error("blocked") end }, function(C) eq(C.InstanceName(), nil) end)
 end)
