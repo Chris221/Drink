@@ -1,0 +1,17 @@
+{
+  "name": "drink",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build script for the Drink addon",
+  "main": "build.js",
+  "scripts": {
+    "start": "npm run build",
+    "build": "node build.js"
+  },
+  "keywords": [],
+  "author": "chris221221",
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}

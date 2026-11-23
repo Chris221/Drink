@@ -72,6 +72,19 @@ it to the game to display, but can't compare it or put it in a chat message. So 
 
 The options are also in the game's AddOns settings under **Drink**. Every threshold, tier, sound/flash, message template and drink-buff name is configurable, with per-character profiles.
 
+## Install
+
+Download `Drink_vX.Y.Z.zip` from the [Releases](../../releases) page and extract it into your client's `Interface\AddOns` folder (`_retail_`, `_classic_` or `_forever_`), so you end up with `Interface\AddOns\Drink\Drink.toc`. Changes per version are in [CHANGELOG.md](CHANGELOG.md).
+
+## Build a release
+
+    npm install
+    npm run build
+
+This zips `Drink/` into `build/Drink_v<version>.zip` (the version comes from `Drink/Drink.toc`) and writes `build/release.json` for addon managers. Only the addon folder goes in the zip; tests, docs and tools stay out.
+
+A daily GitHub Action (`.github/workflows/update-interface.yml`) opens a pull request when Blizzard's live or PTR versions move past the `## Interface:` line. Test in-game before merging it into a release.
+
 ## Install (dev)
 
 `Drink/` is the addon. `tools/install.ps1` junctions it into the AddOns folder of each client, so edits in the repo are live after `/reload`:

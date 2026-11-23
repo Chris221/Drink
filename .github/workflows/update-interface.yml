@@ -1,0 +1,37 @@
+name: Update TOC Interface versions
+
+on:
+  schedule:
+    - cron: 0 12 * * *
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Drink ships one TOC for every client, so each flavor adds its version to the
+      # same "## Interface:" line.
+      - uses: p3lim/toc-interface-updater@v4
+        with:
+          flavor: |
+            forever
+            mists
+            retail
+          ptr: true
+
+      - name: Show what changed
+        run: git diff
+
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          title: Update Interface versions
+          commit-message: Update Interface versions
+          body: Automated bump from Blizzard's live/PTR version servers. Test in-game before releasing.
+          branch: interface-version
+          delete-branch: true
