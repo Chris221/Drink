@@ -39,7 +39,7 @@ Below 80% mana after a fight, a button shows the drink that refills you with the
 
 Each time you sit down, your chat shows how long it'll take to fill up, counting natural regen: `[Drink] Melon Juice: full in ~18s`.
 
-![The drink stats line in chat: Refreshing Spring Water x1, about 5s to full](https://raw.githubusercontent.com/Chris221/Drink/main/Images/drink-stats.png)
+![The drink stats line in chat: Refreshing Spring Water x1, about 8s to full](https://raw.githubusercontent.com/Chris221/Drink/main/Images/drink-stats.png)
 
 ### Never run dry
 - **Stock check** on entering a dungeon or raid: `Drinks: 34 (~21 refills) - you're good` or `- STOCK UP`.
