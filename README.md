@@ -6,6 +6,8 @@ Out of combat, out of mana, and the tank is already pulling? **Drink** tells you
 
 It goes by your mana, not your role or class, so there's nothing to set up per character. Characters without mana never see it.
 
+![The CRITICAL alert at 6% mana with the red screen-edge flash, and the drink button offering Refreshing Spring Water](https://raw.githubusercontent.com/Chris221/Drink/main/Images/critical-flash.jpg)
+
 ## Features summary
 ### Version Support
 One download for **Retail (Midnight)**, **Mists of Pandaria Classic** and **World of Warcraft: Forever**.
@@ -13,7 +15,7 @@ One download for **Retail (Midnight)**, **Mists of Pandaria Classic** and **Worl
 ### Know when to drink
 The moment combat ends you get an alert scaled to your mana:
 
-![The CRITICAL alert at 2% mana, with the drink button offering Sweet Nectar](https://raw.githubusercontent.com/Chris221/Drink/main/Images/critical-alert.png)
+![The four alert tiers: Top up? at 92%, Drink soon at 66%, DRINK! at 49% in orange and DRINK! at 6% in big red](https://raw.githubusercontent.com/Chris221/Drink/main/Images/alert-tiers.png)
 
 | Tier | Default | Says | Looks like |
 |------|---------|------|------------|
@@ -21,10 +23,6 @@ The moment combat ends you get an alert scaled to your mana:
 | Heads-up | 50–79% | Drink soon | yellow text, soft chime |
 | Low | 20–49% | DRINK! | big orange text, ready-check sound |
 | CRITICAL | under 20% | DRINK! | huge pulsing red text, raid-warning sound, red screen-edge flash |
-
-At FYI it's just a small, silent nudge:
-
-![The FYI alert at 89% mana: small green text](https://raw.githubusercontent.com/Chris221/Drink/main/Images/fyi-alert.png)
 
 Each tier's wording is yours to change in the options. It skips fights shorter than 3s and stays quiet at 100% mana or when you're dead. Optionally it waits until the whole group is out of combat.
 
