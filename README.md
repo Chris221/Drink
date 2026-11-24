@@ -39,6 +39,8 @@ Below 80% mana after a fight, a button shows the drink that refills you with the
 
 Each time you sit down, your chat shows how long it'll take to fill up, counting natural regen: `[Drink] Melon Juice: full in ~18s`.
 
+![The drink stats line in chat: Refreshing Spring Water x1, about 5s to full](https://raw.githubusercontent.com/Chris221/Drink/main/Images/drink-stats.png)
+
 ### Never run dry
 - **Stock check** on entering a dungeon or raid: `Drinks: 34 (~21 refills) - you're good` or `- STOCK UP`.
 - **It learns your dungeons.** In a dungeon you've run before, it checks against the most a recent run there took you: `Drinks: 8 (~14 needed) - STOCK UP`.
@@ -63,6 +65,8 @@ Forever hides your exact mana from addons. Drink works around it:
 
 ### Interface
 Type **/drink** (or **/drinkalert**) for the options, also in the game's AddOns settings under **Drink**. Every threshold, tier, alert text, sound, flash, message and drink-buff name can be changed. Settings are shared by all your characters unless you give one its own profile.
+
+![The Tiers tab of the options: cutoff sliders, and per tier an Enabled box, seconds on screen, editable alert text, a Test button and a sound toggle](https://raw.githubusercontent.com/Chris221/Drink/main/Images/options-tiers.png)
 
 Opening the game's **Edit Mode** unlocks the alert and the drink button so you can place them with the rest of your UI.
 
