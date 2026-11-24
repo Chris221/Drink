@@ -1,5 +1,7 @@
 # Drink
 
+<img src="https://raw.githubusercontent.com/Chris221/Drink/main/Images/icon.png" alt="Drink icon" width="160">
+
 Out of combat, out of mana, and the tank is already pulling? **Drink** tells you to drink the moment a fight ends, louder the lower your mana is, picks the right drink from your bags, and lets your group know you're sitting down. It's for anyone who uses mana: healers, tanks and damage dealers alike.
 
 It goes by your mana, not your role or class, so there's nothing to set up per character. Characters without mana never see it.
