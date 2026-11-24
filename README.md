@@ -42,10 +42,12 @@ Each time you sit down, your chat shows how long it'll take to fill up, counting
 ![The drink stats line in chat: Refreshing Spring Water x1, about 8s to full](https://raw.githubusercontent.com/Chris221/Drink/main/Images/drink-stats.png)
 
 ### Never run dry
-- **Stock check** on entering a dungeon or raid: `Drinks: 34 (~21 refills) - you're good` or `- STOCK UP`.
+- **Stock check** on entering a dungeon or raid: `Drinks: 34 (~21 refills) - you're good` or `- STOCK UP`, with what's in your bags in chat.
 - **It learns your dungeons.** In a dungeon you've run before, it checks against the most a recent run there took you: `Drinks: 8 (~14 needed) - STOCK UP`.
 - **Low stock mid-run:** one warning if you drop below your threshold inside.
 - **Ask a mage for water:** when you're low and there's a mage in the group, an "Ask <name> for water" button appears. Nothing is sent unless you click it.
+
+![The stock check: Drinks: 3, about 2 refills, STOCK UP, and the chat line In your bags: Refreshing Spring Water x3](https://raw.githubusercontent.com/Chris221/Drink/main/Images/stock-check.png)
 
 ### Dungeon run tally
 Inside a dungeon or raid, Drink counts the drinks you use, the time you spend drinking and the pulls that cut a drink short. Leaving prints one line:
