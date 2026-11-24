@@ -22,6 +22,10 @@ The moment combat ends you get an alert scaled to your mana:
 | Low | 20–49% | big orange text, ready-check sound |
 | CRITICAL | under 20% | huge pulsing red text, raid-warning sound, red screen-edge flash |
 
+At FYI it's just a small, silent nudge:
+
+![The FYI alert at 89% mana: small green text](https://raw.githubusercontent.com/Chris221/Drink/main/Images/fyi-alert.png)
+
 It skips fights shorter than 3s and stays quiet at 100% mana or when you're dead. Optionally it waits until the whole group is out of combat.
 
 ### Tell your group
