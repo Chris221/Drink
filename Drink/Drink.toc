@@ -1,9 +1,9 @@
 ## Interface: 16001, 50504, 120105, 120107
-## Title: Drink
+## Title: |cff33ccffDrink|r
 ## Notes: Drink alerts for anyone with mana: tells you when to drink after combat and announces it to your group.
 ## Author: Chris221221
 ## Version: 1.0.0
-## IconTexture: Interface\Icons\INV_Drink_07
+## IconTexture: Interface\AddOns\Drink\Media\icon
 ## Category: Combat
 ## SavedVariables: DrinkDB
 

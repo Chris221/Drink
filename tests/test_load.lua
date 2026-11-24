@@ -25,7 +25,11 @@ test("load: toc metadata", function()
   local _, meta = tocFiles()
   eq(meta["Interface"], "16001, 50504, 120105, 120107")
   eq(meta["SavedVariables"], "DrinkDB")
-  eq(meta["Title"], "Drink")
+  eq(meta["Title"], "|cff33ccffDrink|r")
+  -- The icon path must point at a file that ships in the addon folder.
+  local icon = meta["IconTexture"]:match("^Interface\\AddOns\\Drink\\(.+)$")
+  truthy(icon, "IconTexture should live under Interface\\AddOns\\Drink")
+  truthy(exists("Drink/" .. icon:gsub("\\", "/") .. ".tga"), "IconTexture file missing")
 end)
 
 test("load: toc file order and existence", function()
