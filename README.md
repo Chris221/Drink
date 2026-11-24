@@ -56,7 +56,7 @@ Each time you sit down, your chat shows how long it'll take to fill up, counting
 ### Dungeon run tally
 Inside a dungeon or raid, Drink counts the drinks you use, the time you spend drinking and the pulls that cut a drink short. Leaving prints one line:
 
-`[Drink] Deadmines: 11 drinks, 3m 40s drinking, pulled mid-drink 2 times`
+![The run tally after leaving the Stormwind Stockade: 9 drinks, 1m 57s drinking, pulled mid-drink 3 times](https://raw.githubusercontent.com/Chris221/Drink/main/Images/run-tally.png)
 
 `/drink runs` lists your last 5 runs of each dungeon. Runs are saved per character and never leave your computer.
 
