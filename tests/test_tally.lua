@@ -317,7 +317,7 @@ test("stock: in a dungeon I've run before, the check goes by what it took", func
   ctrl:OnEnteringWorld(false, "party", "Deadmines"); env:advance(3)
   eq(env.stocks[1].low, false, "16 covers the 14 a run has taken (the fixed 20 would have nagged)")
   eq(env.stocks[1].need, 14)
-  eq(env.printed, { "[Drink] Dew x16", "[Drink] Deadmines: 9-14 drinks a run (last 3 runs)" })
+  eq(env.printed, { "[Drink] In your bags: Dew x16", "[Drink] Deadmines: 9-14 drinks a run (last 3 runs)" })
 
   ctrl, env = setup({ drinks = { d("Dew", 500, 10) } }, nil, { runs = { Deadmines = past(9, 14, 11) } })
   ctrl:OnEnteringWorld(false, "party", "Deadmines"); env:advance(3)
@@ -329,7 +329,7 @@ test("stock: a dungeon I haven't run, or learning switched off, uses the fixed n
   ctrl:OnEnteringWorld(false, "party", "Wailing Caverns"); env:advance(3)
   eq(env.stocks[1].low, true, "16 is under the fixed 20")
   eq(env.stocks[1].need, nil)
-  eq(env.printed, { "[Drink] Dew x16" })
+  eq(env.printed, { "[Drink] In your bags: Dew x16" })
 
   ctrl, env = setup({ drinks = { d("Dew", 500, 16) } }, function(p) p.stock.learn = false end,
     { runs = { Deadmines = past(9, 14) } })

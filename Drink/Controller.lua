@@ -282,7 +282,7 @@ function Controller:StockCheck()
   self.stockWasLow = summary.low
   env.showStock(summary)
   if summary.breakdown ~= "" then
-    env.print("[Drink] " .. summary.breakdown)
+    env.print("[Drink] In your bags: " .. summary.breakdown)
   else
     env.print("[Drink] No drinks in your bags.")
   end
