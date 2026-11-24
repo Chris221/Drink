@@ -65,6 +65,22 @@ test("stats: natural regen is counted", function()
   eq(env.printed, { "[Drink] Mid: full in ~20s" })
 end)
 
+-- Seen on _forever_: GetManaRegen() 8.25 standing, 16.65 while drinking a 151-over-18s water.
+-- The game already counts the drink in its regen while you sit; reading regen then counted it twice.
+test("stats: regen is read before sitting, so the drink isn't counted twice", function()
+  local ctrl, env = setup({ mana = 60, maxMana = 1000, regen = 5, group = PARTY, drinks = THREE })
+  fight(ctrl, env)                      -- recommends Mid (450 over 30s = 15/s)
+  env.regen = 5 + 15                    -- the drink shows up in the game's regen while seated
+  sit(ctrl, env)
+  eq(env.printed, { "[Drink] Mid: full in ~20s" }, "400 missing / (15 + 5)")
+
+  ctrl, env = setup({ hiddenMana = true, maxMana = 400, regen = 3, group = PARTY, drinks = THREE })
+  fight(ctrl, env)
+  env.regen = 3 + 15
+  sit(ctrl, env)
+  eq(env.hiddenStats, { { "Mid", 400, 3 } }, "hidden mana: the game gets the pre-drink regen too")
+end)
+
 test("stats: more than one drink needed", function()
   local ctrl, env = setup({ mana = 10, maxMana = 1000, group = PARTY, drinks = { d("Small", 300) } })
   fight(ctrl, env)

@@ -37,6 +37,7 @@ function Controller.New(profile, env, store)
     readyThisBreak = false,
     drinkToken = 0,       -- bumps on every drink start; the pull watcher only acts on its own drink
     lastRec = nil,        -- last recommended drink: what the drink stats assume I'm drinking
+    lastRegen = nil,      -- mana regen when it was recommended, before sitting (see PrintDrinkStats)
     instanceType = nil,
     stockWasLow = nil,    -- result of the last stock check in this instance
     mageName = nil,       -- set while the "ask a mage" button is showing
@@ -232,7 +233,7 @@ end
 function Controller:ShowRecommendation()
   local env = self.env
   local rec = self:Recommend()
-  if rec then self.lastRec = rec end
+  if rec then self.lastRec, self.lastRegen = rec, env.getManaRegen() end
   if not rec or not env.showDrinkButton(rec) then return nil end
   self.buttonToken = self.buttonToken + 1
   local token, gen = self.buttonToken, self.gen
@@ -410,7 +411,8 @@ function Controller:PrintDrinkStats(pct, hidden)
   if not self.p.recommend.stats or not rec then return end
   local max = env.getMaxMana()
   if not max then return end
-  local regen = env.getManaRegen()
+  -- Regen from before I sat: while seated the game's regen already includes the drink.
+  local regen = self.lastRegen
   if pct then
     local st = ns.Drinks.FillStats(rec, max * (100 - pct) / 100, regen)
     if not st then return end
