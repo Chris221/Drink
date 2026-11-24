@@ -242,14 +242,24 @@ function Alert.ShowStock(summary)
   layer:Hide()
   text:SetFont(STANDARD_TEXT_FONT, 24, "THICKOUTLINE")
   -- summary.need: set in a dungeon I've run before (what it's likely to take from here).
-  local detail = summary.need and string.format("~%d needed", summary.need)
-    or string.format("~%d refills", summary.refills)
+  local detail
+  if summary.need then
+    detail = string.format(" (~%d needed)", summary.need)
+  elseif summary.total == 0 then
+    detail = ""
+  elseif summary.refills < 1 then
+    detail = " (<1 refill)"
+  elseif summary.refills == 1 then
+    detail = " (~1 refill)"
+  else
+    detail = string.format(" (~%d refills)", summary.refills)
+  end
   if summary.low then
     text:SetTextColor(1.0, 0.6, 0.1)
-    text:SetText(string.format("Drinks: %d (%s) - STOCK UP", summary.total, detail))
+    text:SetText(string.format("Drinks: %d%s - STOCK UP", summary.total, detail))
   else
     text:SetTextColor(0.4, 1.0, 0.4)
-    text:SetText(string.format("Drinks: %d (%s) - you're good", summary.total, detail))
+    text:SetText(string.format("Drinks: %d%s - you're good", summary.total, detail))
   end
   text:SetAlpha(1)
   frame.t = 0

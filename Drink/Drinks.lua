@@ -181,7 +181,7 @@ function Drinks.StockSummary(drinks, maxMana, threshold)
   for i, d in ipairs(rows) do parts[i] = d.name .. " x" .. d.count end
   return {
     total = total,
-    refills = maxMana and maxMana > 0 and math.floor(mana / maxMana) or 0,
+    refills = maxMana and maxMana > 0 and math.floor(mana / maxMana + 0.5) or 0, -- nearest whole bar
     low = total < threshold,
     breakdown = table.concat(parts, ", "),
   }
