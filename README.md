@@ -53,6 +53,10 @@ Each time you sit down, your chat shows how long it'll take to fill up, counting
 
 ![The stock check: Drinks: 3, about 2 refills, STOCK UP, and the chat line In your bags: Refreshing Spring Water x3](https://raw.githubusercontent.com/Chris221/Drink/main/Images/stock-check.png)
 
+Back in a dungeon you've run before, it goes by what that dungeon took you:
+
+![The stock check on a second Stockade run: In your bags: Conjured Purified Water x20, Melon Juice x17, Sweet Nectar x13, then Stormwind Stockade: 9 drinks last run](https://raw.githubusercontent.com/Chris221/Drink/main/Images/stock-learned.png)
+
 ### Dungeon run tally
 Inside a dungeon or raid, Drink counts the drinks you use, the time you spend drinking and the pulls that cut a drink short. Leaving prints one line:
 
