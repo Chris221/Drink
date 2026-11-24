@@ -13,6 +13,8 @@ One download for **Retail (Midnight)**, **Mists of Pandaria Classic** and **Worl
 ### Know when to drink
 The moment combat ends you get an alert scaled to your mana:
 
+![The CRITICAL alert at 2% mana, with the drink button offering Sweet Nectar](https://raw.githubusercontent.com/Chris221/Drink/main/Images/critical-alert.png)
+
 | Tier | Default | Looks like |
 |------|---------|------------|
 | FYI | 80%+ | small green text, silent |
