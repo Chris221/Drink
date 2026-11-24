@@ -5,6 +5,9 @@
 ## Version: 1.0.0
 ## IconTexture: Interface\AddOns\Drink\Media\icon
 ## Category: Combat
+## X-License: GNU GPL v3
+## X-Website: https://github.com/Chris221/Drink
+## X-Curse-Project-ID: 1827692
 ## SavedVariables: DrinkDB
 
 embeds.xml

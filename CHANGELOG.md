@@ -1,4 +1,4 @@
-# Drink
+# [Drink](https://www.curseforge.com/wow/addons/drink)
 
 ## Changes
 ### Changes in 1.0.0

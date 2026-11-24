@@ -1,4 +1,4 @@
-# Drink
+# [Drink](https://www.curseforge.com/wow/addons/drink)
 
 <img src="https://raw.githubusercontent.com/Chris221/Drink/main/Images/icon.png" alt="Drink icon" width="160">
 
