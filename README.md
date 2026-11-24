@@ -34,6 +34,10 @@ Each tier's wording is yours to change in the options. It skips fights shorter t
 - Solo? Both messages print just to you instead.
 - On Retail, if Blizzard's chat lockdown is on (boss fights, Mythic+), messages print locally instead of erroring.
 
+What your party sees, from a dungeon run on WoW Forever (where the % stays hidden, so it's just "Drinking" and "Ready"):
+
+![Party chat: Drinking when a party member sat down, and Ready when they stood up](https://raw.githubusercontent.com/Chris221/Drink/main/Images/party-chat.png)
+
 ### Which drink?
 Below 80% mana after a fight, a button shows the drink that refills you with the least waste: the smallest drink in your bags that covers what you're missing. It learns how long you usually get between pulls in each zone, so a long drink you won't finish counts for less. Mage water comes first (toggle). Click it to drink, or bind a key: **Game Menu → Options → Keybindings → Drink → "Use recommended drink"**.
 
