@@ -27,6 +27,38 @@ local editUnlocked = false -- unlocked by the game's Edit Mode rather than by ha
 local HIDDEN_DURATION = 4 -- hidden mana: the addon can't tell which tier the game showed
 local HIDDEN_TIERS = { "fyi", "heads", "low", "critical" }
 
+-- Alert text per tier (profile.tiers[tier].text): "%m" is the mana %, like the chat templates.
+local FALLBACK_TEXT = "DRINK!  %m% mana"
+
+local function tierText(tier)
+  local cfg = profile.tiers[tier]
+  local t = cfg and cfg.text
+  if type(t) == "string" and t:find("%S") then return t end
+  local d = ns.defaults and ns.defaults.profile.tiers[tier]
+  return d and d.text or FALLBACK_TEXT
+end
+
+local function withPercent(t, pct)
+  return (t:gsub("%%m", function() return tostring(pct) end))
+end
+
+-- No readable %: drop the "%m% mana" part of the usual shape, put a ? in place of any other %m.
+local function withoutPercent(t)
+  local s = t:gsub("%s*%%m%%?%s*mana", ""):gsub("%%m", "?")
+  s = s:match("^%s*(.-)%s*$")
+  return s ~= "" and s or "DRINK!"
+end
+
+-- printf format for a secret %: literal % doubled, each %m -> %d. Returns the format and how many.
+local function secretFormat(t)
+  return t:gsub("%%", "%%%%"):gsub("%%%%m", "%%d")
+end
+
+local function rep(v, n)
+  if n <= 0 then return end
+  return v, rep(v, n - 1)
+end
+
 -- Offsets are stored in screen (UIParent) units so changing the scale doesn't move the alert;
 -- SetPoint/GetPoint offsets on a scaled frame are in the frame's own units.
 local function savePoint()
@@ -148,10 +180,11 @@ function Alert.Show(tier, pct)
   flash.tex:SetAlpha(1)
   text:SetFont(STANDARD_TEXT_FONT, style.size, "THICKOUTLINE")
   text:SetTextColor(style.r, style.g, style.b)
+  local t = tierText(tier)
   if pct then
-    text:SetText(string.format("DRINK!  %d%% mana", pct))
+    text:SetText(withPercent(t, pct))
   else
-    text:SetText("DRINK!  (mana unknown)")
+    text:SetText(withoutPercent(t) .. "  (mana unknown)")
   end
   text:SetAlpha(1)
 
@@ -237,8 +270,12 @@ function Alert.ShowHidden(view, sound)
   text:SetText("")
   for _, tier in ipairs(HIDDEN_TIERS) do
     local fs = layer.texts[tier]
-    if not (view.hasPercent and pcall(fs.SetFormattedText, fs, "DRINK!  %d%% mana", view.percent)) then
-      fs:SetText("DRINK!")
+    local t = tierText(tier)
+    local fmt, n = secretFormat(t)
+    if n == 0 then
+      fs:SetText(t)
+    elseif not (view.hasPercent and pcall(fs.SetFormattedText, fs, fmt, rep(view.percent, n))) then
+      fs:SetText(withoutPercent(t))
     end
     if not (view.has[tier] and pcall(fs.SetAlpha, fs, view.alpha[tier])) then fs:SetAlpha(0) end
   end

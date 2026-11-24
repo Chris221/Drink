@@ -275,3 +275,21 @@ test("options: /drink test ready, and usage mentions it", function()
   truthy(printed[1]:find("ready", 1, true), "usage mentions ready")
   ns.ctrl = nil
 end)
+
+test("options: every tier has an editable alert text; defaults are gentle above Low", function()
+  local opts, profile = build()
+  local found = {}
+  for _, opt in ipairs(leaves(opts)) do
+    if opt.arg and opt.arg[1] == "tiers" and opt.arg[3] == "text" then
+      found[#found + 1] = opt.arg[2]
+      eq(opt.type, "input")
+      truthy(opt.desc and opt.desc:find("%m", 1, true), "desc explains %m")
+    end
+  end
+  table.sort(found)
+  eq(found, { "critical", "fyi", "heads", "low" })
+  eq(profile.tiers.fyi.text, "Top up?  %m% mana")
+  eq(profile.tiers.heads.text, "Drink soon  %m% mana")
+  eq(profile.tiers.low.text, "DRINK!  %m% mana")
+  eq(profile.tiers.critical.text, "DRINK!  %m% mana")
+end)

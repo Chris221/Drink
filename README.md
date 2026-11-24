@@ -15,18 +15,18 @@ The moment combat ends you get an alert scaled to your mana:
 
 ![The CRITICAL alert at 2% mana, with the drink button offering Sweet Nectar](https://raw.githubusercontent.com/Chris221/Drink/main/Images/critical-alert.png)
 
-| Tier | Default | Looks like |
-|------|---------|------------|
-| FYI | 80%+ | small green text, silent |
-| Heads-up | 50–79% | yellow text, soft chime |
-| Low | 20–49% | big orange text, ready-check sound |
-| CRITICAL | under 20% | huge pulsing red text, raid-warning sound, red screen-edge flash |
+| Tier | Default | Says | Looks like |
+|------|---------|------|------------|
+| FYI | 80%+ | Top up? | small green text, silent |
+| Heads-up | 50–79% | Drink soon | yellow text, soft chime |
+| Low | 20–49% | DRINK! | big orange text, ready-check sound |
+| CRITICAL | under 20% | DRINK! | huge pulsing red text, raid-warning sound, red screen-edge flash |
 
 At FYI it's just a small, silent nudge:
 
 ![The FYI alert at 89% mana: small green text](https://raw.githubusercontent.com/Chris221/Drink/main/Images/fyi-alert.png)
 
-It skips fights shorter than 3s and stays quiet at 100% mana or when you're dead. Optionally it waits until the whole group is out of combat.
+Each tier's wording is yours to change in the options. It skips fights shorter than 3s and stays quiet at 100% mana or when you're dead. Optionally it waits until the whole group is out of combat.
 
 ### Tell your group
 - **"Drinking — 34% mana"** goes to instance, raid or party chat (picked for you) when you sit down, once per break. Never at full mana (buff food), and never again after a `/reload` mid-drink.
@@ -64,7 +64,7 @@ Forever hides your exact mana from addons. Drink works around it:
 - The drink button, stock check and run tally all work.
 
 ### Interface
-Type **/drink** (or **/drinkalert**) for the options, also in the game's AddOns settings under **Drink**. Every threshold, tier, sound, flash, message and drink-buff name can be changed. Settings are shared by all your characters unless you give one its own profile.
+Type **/drink** (or **/drinkalert**) for the options, also in the game's AddOns settings under **Drink**. Every threshold, tier, alert text, sound, flash, message and drink-buff name can be changed. Settings are shared by all your characters unless you give one its own profile.
 
 Opening the game's **Edit Mode** unlocks the alert and the drink button so you can place them with the rest of your UI.
 
@@ -90,7 +90,7 @@ Use your addon manager, or download `Drink_vX.Y.Z.zip` from [GitHub Releases](ht
 ## Changes
 ### Changes in 1.0.0
 - First release, for WoW Forever (1.60), Mists of Pandaria Classic (5.5) and Retail/Midnight (12.x) from one folder
-- Combat-end alert scaled by mana %: FYI (small and silent), Heads-up, Low and CRITICAL, each louder than the last, with a red screen-edge flash at Critical
+- Combat-end alert scaled by mana %: FYI ("Top up?", small and silent), Heads-up ("Drink soon"), Low and CRITICAL ("DRINK!"), each louder than the last, with a red screen-edge flash at Critical
 - "Drinking — 34% mana" posted to instance, raid or party chat once per break; never at full mana (buff food) or after a `/reload` mid-drink
 - Optional end-of-fight mana report; when solo, both messages print just to you
 - "Which drink?" button after a fight: the smallest drink in your bags that refills you, learning the usual time between pulls in the zone; mage water preferred; click it or use the keybind to drink
@@ -99,6 +99,6 @@ Use your addon manager, or download `Drink_vX.Y.Z.zip` from [GitHub Releases](ht
 - Drink stats line (time to full, counting regen), "Ready — 85% mana" when you stand up, and "PULL - stand up!" if the group pulls while you're sitting
 - Quiet in bear and cat form (and on Retail specs that don't fight with mana) unless mana is Low or Critical; no mage-water button for mages
 - Works with WoW Forever's hidden mana: the alert still shows your real %, and the game decides when you're low
-- Edit Mode unlocks the alert and drink button for placing; per-character profiles; every threshold, sound and message is configurable
+- Edit Mode unlocks the alert and drink button for placing; per-character profiles; every threshold, alert text, sound and message is configurable
 
 *Working on Drink? See [CONTRIBUTING.md](https://github.com/Chris221/Drink/blob/main/CONTRIBUTING.md).*

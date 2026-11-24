@@ -69,7 +69,9 @@ function ns.BuildOptions(getProfile)
       args = {
         enabled = opt("toggle", { "tiers", key, "enabled" }, "Enabled"),
         duration = opt("range", { "tiers", key, "duration" }, "Seconds on screen", { min = 1, max = 15, step = 1 }),
-        test = { type = "execute", name = "Test", order = nextOrder(), func = function() preview(key) end },
+        text = opt("input", { "tiers", key, "text" }, "Alert text",
+          { width = "full", desc = "%m is replaced with your mana %. Leave it empty to go back to the default." }),
+        test ={ type = "execute", name = "Test", order = nextOrder(), func = function() preview(key) end },
       },
     }
     if key ~= "fyi" then

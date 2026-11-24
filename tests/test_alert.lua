@@ -301,3 +301,56 @@ test("alert: the game's Edit Mode unlocks while it's open and locks again when i
   for _, n in ipairs(G) do _G[n] = saved[n] end
   if not ok then error(err, 0) end
 end)
+
+test("alert: per-tier text, %m is the mana %, gentle FYI default, works with hidden mana", function()
+  local saved = {}
+  for _, n in ipairs(G) do saved[n] = _G[n] end
+  local log, frames = {}, {}
+  _G.CreateFrame = function(_, name) local f = stubObject(log); if name then frames[name] = f end; return f end
+  _G.UIParent = stubObject(log)
+  _G.STANDARD_TEXT_FONT = "font"
+  _G.SOUNDKIT = { RAID_WARNING = 8959 }
+  _G.PlaySound = function() end
+  local ok, err = pcall(function()
+    local ns = {}
+    load_addon(ns, "Drink/Defaults.lua")
+    load_addon(ns, "Drink/Alert.lua")
+    local profile = deepcopy(ns.defaults.profile)
+    local A = ns.Alert
+    A.Init(profile)
+    local layer = frames.DrinkAlertHidden
+
+    A.Show("fyi", 89);      eq(log[#log], "Top up?  89% mana")
+    A.Show("heads", 65);    eq(log[#log], "Drink soon  65% mana")
+    A.Show("low", 35);      eq(log[#log], "DRINK!  35% mana")
+    A.Show("critical", 12); eq(log[#log], "DRINK!  12% mana")
+    A.Show("fyi", nil);     eq(log[#log], "Top up?  (mana unknown)")
+
+    profile.tiers.fyi.text = "%m% - all good"
+    A.Show("fyi", 89); eq(log[#log], "89% - all good")
+    profile.tiers.fyi.text = "100% fine"
+    A.Show("fyi", 89); eq(log[#log], "100% fine", "no %m: shown as typed, literal % kept")
+    profile.tiers.fyi.text = "   "
+    A.Show("fyi", 89); eq(log[#log], "Top up?  89% mana", "blank: back to the default")
+
+    -- Hidden mana: the % only reaches the game's formatter; literal % in the text survives.
+    local ALL = { critical = true, low = true, heads = true, fyi = true }
+    local function hidden(hasPercent)
+      A.ShowHidden({ percent = hasPercent and 89 or "?", hasPercent = hasPercent,
+        alpha = { critical = 0, low = 0, heads = 0, fyi = 1 }, has = ALL }, false)
+    end
+    profile.tiers.fyi.text = ""
+    hidden(true)
+    eq(layer.texts.fyi.text, "Top up?  89% mana"); eq(layer.texts.critical.text, "DRINK!  89% mana")
+    hidden(false)
+    eq(layer.texts.fyi.text, "Top up?", "no readable %: the number part is dropped")
+    eq(layer.texts.critical.text, "DRINK!")
+    profile.tiers.fyi.text = "%m% (%m%) - 50% off"
+    hidden(true);  eq(layer.texts.fyi.text, "89% (89%) - 50% off")
+    hidden(false); eq(layer.texts.fyi.text, "?% (?%) - 50% off", "other %m shapes: a ? in place of the number")
+    profile.tiers.fyi.text = "100% fine"
+    hidden(true);  eq(layer.texts.fyi.text, "100% fine")
+  end)
+  for _, n in ipairs(G) do _G[n] = saved[n] end
+  if not ok then error(err, 0) end
+end)

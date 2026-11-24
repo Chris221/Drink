@@ -18,11 +18,12 @@ ns.defaults = {
     },
     -- pct >= fyi -> fyi; >= heads -> heads; >= low -> low; else critical
     cutoffs = { fyi = 80, heads = 50, low = 20 },
+    -- text: the alert's wording; %m is replaced with the mana %.
     tiers = {
-      fyi      = { enabled = true, duration = 2 },
-      heads    = { enabled = true, duration = 3, sound = true },
-      low      = { enabled = true, duration = 4, sound = true },
-      critical = { enabled = true, duration = 6, sound = true, flash = true },
+      fyi      = { enabled = true, duration = 2, text = "Top up?  %m% mana" },
+      heads    = { enabled = true, duration = 3, sound = true, text = "Drink soon  %m% mana" },
+      low      = { enabled = true, duration = 4, sound = true, text = "DRINK!  %m% mana" },
+      critical = { enabled = true, duration = 6, sound = true, flash = true, text = "DRINK!  %m% mana" },
     },
     announce = {
       enabled = true,
