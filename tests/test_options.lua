@@ -293,3 +293,30 @@ test("options: every tier has an editable alert text; defaults are gentle above 
   eq(profile.tiers.low.text, "DRINK!  %m% mana")
   eq(profile.tiers.critical.text, "DRINK!  %m% mana")
 end)
+
+-- AceConfigDialog gives a "normal" widget a fixed width and cuts longer labels to "...".
+-- Character budgets measured from in-game screenshots (_forever_, default UI scale).
+test("options: no label or dropdown value is long enough to be cut off with ...", function()
+  local BUDGET = { toggle = 21, range = 27, select = 22 }
+  local long = {}
+  for _, opt in ipairs(leaves(build())) do
+    local limit = BUDGET[opt.type]
+    if limit and opt.width ~= "full" and opt.width ~= "double" then
+      if type(opt.name) == "string" and #opt.name > limit then long[#long + 1] = opt.name end
+      if opt.type == "select" then
+        for _, v in pairs(opt.values) do
+          if #v > BUDGET.select then long[#long + 1] = "value: " .. v end
+        end
+      end
+    end
+  end
+  table.sort(long)
+  eq(long, {})
+end)
+
+test("options: drink buff names come after the announcement's own settings", function()
+  local opts = build()
+  local g = opts.args.chat.args.announce.args
+  truthy(g.auraNames.order > g.template.order and g.auraNames.order > g.test.order,
+    "auraNames order " .. g.auraNames.order .. " vs template " .. g.template.order)
+end)

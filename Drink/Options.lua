@@ -2,12 +2,14 @@
 local ADDON, ns = ...
 
 local CHANNELS = {
-  AUTO = "Auto (instance > raid > party)",
+  AUTO = "Auto",
   INSTANCE_CHAT = "Instance",
   RAID = "Raid",
   PARTY = "Party",
   OFF = "Off",
 }
+
+local AUTO_DESC = "Auto: instance chat, else raid, else party."
 
 local TIER_LABEL = { fyi = "FYI", heads = "Heads-up", low = "Low", critical = "CRITICAL" }
 
@@ -49,10 +51,10 @@ function ns.BuildOptions(getProfile)
 
   local function relayout() if ns.Alert and ns.Alert.ApplyLayout then ns.Alert.ApplyLayout() end end
 
-  local function cutoff(key, name)
+  local function cutoff(key, name, extraDesc)
     return opt("range", { "cutoffs", key }, name, {
       min = 1, max = 99, step = 1,
-      desc = "Mana % at or above which this tier applies.",
+      desc = "Mana % at or above which this tier applies." .. (extraDesc and (" " .. extraDesc) or ""),
       validate = function(_, v)
         local c = getProfile().cutoffs
         local fyi, heads, low = c.fyi, c.heads, c.low
@@ -86,7 +88,7 @@ function ns.BuildOptions(getProfile)
   -- One lock for the alert and the drink button; shown on both tabs.
   local function lockOption()
     return opt("toggle", { "alert", "locked" }, "Lock alert and drink button",
-      { desc = "Untick to drag the alert and the drink button (drag the button's corner to resize it). The game's Edit Mode also unlocks them while it's open." },
+      { width = "full", desc = "Untick to drag the alert and the drink button (drag the button's corner to resize it). The game's Edit Mode also unlocks them while it's open." },
       function(v) if ns.Alert and ns.Alert.SetLocked then ns.Alert.SetLocked(v) end end)
   end
 
@@ -95,8 +97,8 @@ function ns.BuildOptions(getProfile)
       type = "group", inline = true, name = name, order = nextOrder(),
       args = {
         enabled = opt("toggle", { key, "enabled" }, "Enabled"),
-        channel = opt("select", { key, "channel" }, "Channel", { values = CHANNELS }),
-        soloLocal = opt("toggle", { key, "soloLocal" }, "When solo, show it just to me",
+        channel = opt("select", { key, "channel" }, "Channel", { values = CHANNELS, desc = AUTO_DESC }),
+        soloLocal = opt("toggle", { key, "soloLocal" }, "Solo: only I see it",
           { desc = "Not in a group: print the message in your own chat window. Nothing is sent." }),
         below = opt("range", { key, "below" }, "Only when mana is below %",
           { min = 1, max = 100, step = 1, desc = "100 = always." }),
@@ -105,7 +107,8 @@ function ns.BuildOptions(getProfile)
                  func = function() preview(key) end },
       },
     }
-    for k, v in pairs(extra or {}) do g.args[k] = v end
+    -- Extras were built before the group's own settings; put them after.
+    for k, v in pairs(extra or {}) do v.order = nextOrder(); g.args[k] = v end
     return g
   end
 
@@ -116,8 +119,8 @@ function ns.BuildOptions(getProfile)
         type = "group", name = "Alert", order = nextOrder(),
         args = {
           enabled = opt("toggle", { "alert", "enabled" }, "Show alert when combat ends", { width = "full" }),
-          minFightSeconds = opt("range", { "alert", "minFightSeconds" }, "Ignore fights shorter than (sec)",
-            { min = 0, max = 30, step = 1 }),
+          minFightSeconds = opt("range", { "alert", "minFightSeconds" }, "Skip fights under (sec)",
+            { min = 0, max = 30, step = 1, desc = "Fights shorter than this don't trigger an alert." }),
           skipAtFull = opt("toggle", { "alert", "skipAtFull" }, "No alert at 100% mana"),
           onlyInGroup = opt("toggle", { "alert", "onlyInGroup" }, "Only when in a group"),
           waitForGroup = opt("toggle", { "alert", "waitForGroup" }, "Wait until the whole group is out of combat",
@@ -137,7 +140,7 @@ function ns.BuildOptions(getProfile)
         args = {
           fyiCut = cutoff("fyi", "FYI at or above %"),
           headsCut = cutoff("heads", "Heads-up at or above %"),
-          lowCut = cutoff("low", "Low at or above % (below = CRITICAL)"),
+          lowCut = cutoff("low", "Low at or above %", "Below this is CRITICAL."),
           fyi = tierGroup("fyi"),
           heads = tierGroup("heads"),
           low = tierGroup("low"),
@@ -158,8 +161,9 @@ function ns.BuildOptions(getProfile)
             args = {
               enabled = opt("toggle", { "ready", "enabled" }, "Enabled",
                 { desc = "Once per break, after a drink that was announced. Never while you or anyone in the group is in combat." }),
-              channel = opt("select", { "ready", "channel" }, "Channel", { values = CHANNELS }),
-              soloLocal = opt("toggle", { "ready", "soloLocal" }, "When solo, show it just to me"),
+              channel = opt("select", { "ready", "channel" }, "Channel", { values = CHANNELS, desc = AUTO_DESC }),
+              soloLocal = opt("toggle", { "ready", "soloLocal" }, "Solo: only I see it",
+                { desc = "Not in a group: print the message in your own chat window. Nothing is sent." }),
               atLeast = opt("range", { "ready", "atLeast" }, "Only at this mana % or more", { min = 1, max = 100, step = 1 }),
               template = opt("input", { "ready", "template" }, "Message", { width = "full", desc = "%m is replaced with your mana %." }),
               test = { type = "execute", name = "Preview (prints locally)", order = nextOrder(),
@@ -181,7 +185,8 @@ function ns.BuildOptions(getProfile)
                 { min = 1, max = 100, step = 1, desc = "100 = always." }),
               seconds = opt("range", { "recommend", "seconds" }, "Button visible for (sec)", { min = 2, max = 15, step = 1 }),
               preferConjured = opt("toggle", { "recommend", "preferConjured" }, "Prefer mage water", { width = "full" }),
-              useDowntime = opt("toggle", { "recommend", "useDowntime" }, "Factor in time between pulls"),
+              useDowntime = opt("toggle", { "recommend", "useDowntime" }, "Factor in time between pulls",
+                { width = "full", desc = "Learns how long you usually get between pulls in this zone, so a long drink you won't finish counts for less." }),
               stats = opt("toggle", { "recommend", "stats" }, "When I start drinking, tell me how long it takes",
                 { width = "full", desc = "Prints time to full and drinks needed (with natural regen) in your own chat. Assumes the recommended drink." }),
               downtimeInfo = {
@@ -220,7 +225,8 @@ function ns.BuildOptions(getProfile)
             type = "group", inline = true, name = "Stock check when entering a dungeon or raid", order = nextOrder(),
             args = {
               enabled = opt("toggle", { "stock", "enabled" }, "Enabled"),
-              threshold = opt("range", { "stock", "threshold" }, "Warn when fewer than N drinks", { min = 1, max = 200, step = 1 }),
+              threshold = opt("range", { "stock", "threshold" }, "Warn below N drinks",
+                { min = 1, max = 200, step = 1, desc = "STOCK UP when you have fewer drinks than this." }),
               midRun = opt("toggle", { "stock", "midRun" }, "Also warn once if I drop below it during the run", { width = "full" }),
               learn = opt("toggle", { "stock", "learn" }, "In a dungeon I've run before, go by what it took",
                 { width = "full", desc = "Compares your drinks with the most a recent run there used (less what this run has used so far), in place of the fixed number. Needs the run tally below." }),
